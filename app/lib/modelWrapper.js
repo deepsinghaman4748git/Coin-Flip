@@ -165,6 +165,16 @@ export function getModel(modelName, MongooseModel) {
   const firestoreMethods = {
     find(query = {}) {
       return createQueryChain(async () => {
+        if (mongoose.connection.readyState === 1) {
+          try {
+            if (!query?._id || (mongoose.isValidObjectId(query._id) && String(query._id).length === 24)) {
+              const mDocs = await MongooseModel.find(query);
+              if (mDocs && mDocs.length > 0) return mDocs;
+            }
+          } catch (mErr) {
+            console.warn("Mongoose find error:", mErr.message);
+          }
+        }
         try {
           const docs = await fsFind(collectionKey, query);
           if (docs && docs.length > 0) return docs;
@@ -178,6 +188,16 @@ export function getModel(modelName, MongooseModel) {
 
     findOne(query = {}) {
       return createQueryChain(async () => {
+        if (mongoose.connection.readyState === 1) {
+          try {
+            if (!query?._id || (mongoose.isValidObjectId(query._id) && String(query._id).length === 24)) {
+              const mDoc = await MongooseModel.findOne(query);
+              if (mDoc) return mDoc;
+            }
+          } catch (mErr) {
+            console.warn("Mongoose findOne error:", mErr.message);
+          }
+        }
         try {
           const doc = await fsFindOne(collectionKey, query);
           if (doc) return doc;
@@ -190,15 +210,30 @@ export function getModel(modelName, MongooseModel) {
     },
 
     findById(id) {
+      const idStr = id?.toString?.() || String(id || "");
+      const isValidOid = mongoose.isValidObjectId(idStr) && idStr.length === 24 && /^[0-9a-fA-F]{24}$/.test(idStr);
+
+      if (mongoose.connection.readyState === 1 && isValidOid) {
+        return createQueryChain(async () => {
+          try {
+            const mDoc = await MongooseModel.findById(idStr);
+            if (mDoc) return mDoc;
+          } catch (mErr) {
+            console.warn("Mongoose findById error:", mErr.message);
+          }
+          return firestoreMethods.findById(idStr);
+        }, collectionKey);
+      }
+
       return createQueryChain(async () => {
         try {
-          const doc = await fsFindById(collectionKey, id);
+          const doc = await fsFindById(collectionKey, idStr);
           if (doc) return doc;
         } catch (err) {
           console.warn("fsFindById error:", err);
         }
         const coll = inMemoryDb[collectionKey] || [];
-        return coll.find((doc) => doc._id?.toString() === id?.toString()) || null;
+        return coll.find((doc) => doc._id?.toString() === idStr) || null;
       }, collectionKey);
     },
 
@@ -319,9 +354,6 @@ export function getModel(modelName, MongooseModel) {
 
   return new Proxy(MongooseModel, {
     get(target, prop) {
-      if (mongoose.connection.readyState === 1) {
-        return target[prop];
-      }
       if (prop in firestoreMethods) {
         return firestoreMethods[prop];
       }

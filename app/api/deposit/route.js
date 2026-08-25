@@ -7,7 +7,8 @@ import GameSettings from "../../models/GameSettings";
 
 export async function POST(request) {
   try {
-    const authUser = await getAuthUser(request);
+    const body = await request.json().catch(() => ({}));
+    const authUser = await getAuthUser(request, body);
 
     if (!authUser) {
       return NextResponse.json(
@@ -18,8 +19,6 @@ export async function POST(request) {
         { status: 401 }
       );
     }
-
-    const body = await request.json();
 
     const amount = Number(body.amount);
     const utr = (body.utr || body.utrNumber || "").trim();

@@ -3,6 +3,10 @@ import { getModel } from "../lib/modelWrapper.js";
 
 const UserSchema = new mongoose.Schema(
   {
+    _id: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+
     name: {
       type: String,
       required: true,

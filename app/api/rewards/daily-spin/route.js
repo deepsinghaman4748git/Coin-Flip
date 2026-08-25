@@ -190,7 +190,8 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const authUser = await getAuthUser(request);
+    const body = await request.json().catch(() => ({}));
+    const authUser = await getAuthUser(request, body);
     if (!authUser) {
       return NextResponse.json({ success: false, message: "Please login first" }, { status: 401 });
     }

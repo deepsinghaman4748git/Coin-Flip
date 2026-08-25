@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Volume2, VolumeX, Sparkles, Bot, TrendingUp, Clock, RotateCcw, Trophy, CheckCircle2, ShieldCheck, Flame, Zap } from "lucide-react";
+import { Volume2, VolumeX, Sparkles, Bot, TrendingUp, Clock, RotateCcw, Trophy, CheckCircle2, ShieldCheck, Flame, Zap, MoreVertical } from "lucide-react";
 import DailySpinView from "./components/DailySpinView.jsx";
 import ReferralView from "./components/ReferralView.jsx";
 import {
@@ -21,10 +21,14 @@ import {
 const RUPEE = "\u20B9";
 
 export async function authFetch(url, options = {}) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("coinflip_token")
-      : null;
+  let token = null;
+  if (typeof window !== "undefined") {
+    try {
+      token =
+        localStorage.getItem("coinflip_token") ||
+        sessionStorage.getItem("coinflip_token");
+    } catch {}
+  }
 
   const headers = {
     ...(options.headers || {}),
@@ -351,8 +355,14 @@ function AuthScreen({ mode, onModeChange, onLoggedIn, onStartDemo }) {
 
       if (isLogin) {
         if (typeof window !== "undefined" && data.token) {
-          localStorage.setItem("coinflip_token", data.token);
-          localStorage.setItem("coinflip_user", JSON.stringify(data.user));
+          try {
+            localStorage.setItem("coinflip_token", data.token);
+            sessionStorage.setItem("coinflip_token", data.token);
+            if (data.user) {
+              localStorage.setItem("coinflip_user", JSON.stringify(data.user));
+              sessionStorage.setItem("coinflip_user", JSON.stringify(data.user));
+            }
+          } catch {}
         }
         onLoggedIn(data.user, data.token);
       } else {
@@ -892,9 +902,24 @@ const inputClass =
 
 function AppShell({ user, section, setSection, logout, refreshUser }) {
   const [mobileNav, setMobileNav] = useState(false);
+  const [threeDotOpen, setThreeDotOpen] = useState(false);
+  const [soundEnabledState, setSoundEnabledState] = useState(true);
   const [announcement, setAnnouncement] = useState("");
   const [announcementDismissed, setAnnouncementDismissed] = useState(false);
   const [isSyncingBalance, setIsSyncingBalance] = useState(false);
+
+  useEffect(() => {
+    setSoundEnabledState(isSoundEnabled());
+  }, []);
+
+  const handleToggleSound = () => {
+    const next = !soundEnabledState;
+    setSoundEnabledState(next);
+    setSoundEnabled(next);
+    if (next) {
+      playClickSound();
+    }
+  };
 
   // Sync user and announcement whenever section changes
   useEffect(() => {
@@ -958,7 +983,7 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
   const mobileTabs = [
     { id: "home", label: "Home", icon: "🏠" },
     { id: "spin", label: "Daily Spin", icon: "🎁" },
-    { id: "game", label: "Play Flip", icon: "🪙", isCenter: true },
+    { id: "game", label: "Play Flip", isCenter: true },
     { id: "referral", label: "Refer", icon: "👥" },
     { id: "wallet", label: "Wallet", icon: "💳" },
   ];
@@ -1091,6 +1116,158 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
                 </button>
               )}
 
+              {/* Three-Dot Menu Button (Sound, Rules, Support, etc.) */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setThreeDotOpen((v) => !v)}
+                  className="rounded-xl border border-white/10 hover:border-yellow-400/40 px-2.5 py-2 text-gray-300 hover:text-white hover:bg-white/10 text-xs font-bold transition flex items-center justify-center cursor-pointer shadow-sm"
+                  title="Menu / Settings & Sound"
+                  aria-label="Options Menu"
+                >
+                  <MoreVertical className="w-4 h-4 text-yellow-400" />
+                </button>
+
+                {/* Three-Dot Dropdown Menu Modal */}
+                {threeDotOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
+                      onClick={() => setThreeDotOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 rounded-2xl bg-[#0B1120] border border-white/15 p-2 shadow-2xl z-50 animate-fade-in space-y-1">
+                      <div className="px-3 py-1.5 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-white/10 flex items-center justify-between">
+                        <span>Menu &amp; Options</span>
+                        <span className="text-yellow-400">⋮</span>
+                      </div>
+
+                      {/* Sound Option Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleToggleSound();
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold hover:bg-white/5 transition text-left cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2.5 text-gray-200">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                            soundEnabledState ? "bg-yellow-400/20 text-yellow-400" : "bg-white/10 text-gray-400"
+                          }`}>
+                            {soundEnabledState ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <span className="block text-white">Sound Effects</span>
+                            <span className="text-[10px] text-gray-400 font-normal">गेम की आवाज़</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase transition ${
+                            soundEnabledState
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/20"
+                              : "bg-white/10 text-gray-400"
+                          }`}
+                        >
+                          {soundEnabledState ? "ON 🔊" : "OFF 🔇"}
+                        </span>
+                      </button>
+
+                      {/* Rules & Multipliers */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSection("game");
+                          setThreeDotOpen(false);
+                          playClickSound();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/5 transition text-gray-200 text-left cursor-pointer"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/5 text-yellow-400 flex items-center justify-center">
+                          📜
+                        </div>
+                        <div>
+                          <span className="block text-white">Game Rules</span>
+                          <span className="text-[10px] text-gray-400 font-normal">2X Head/Tail &amp; 10X Tie</span>
+                        </div>
+                      </button>
+
+                      {/* Transaction History */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSection("history");
+                          setThreeDotOpen(false);
+                          playClickSound();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/5 transition text-gray-200 text-left cursor-pointer"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/5 text-cyan-400 flex items-center justify-center">
+                          📊
+                        </div>
+                        <div>
+                          <span className="block text-white">Game History</span>
+                          <span className="text-[10px] text-gray-400 font-normal">Pichhle Rounds ka Record</span>
+                        </div>
+                      </button>
+
+                      {/* Support Link */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSection("referral");
+                          setThreeDotOpen(false);
+                          playClickSound();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/5 transition text-gray-200 text-left cursor-pointer"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/5 text-emerald-400 flex items-center justify-center">
+                          👥
+                        </div>
+                        <div>
+                          <span className="block text-white">Refer &amp; Earn</span>
+                          <span className="text-[10px] text-gray-400 font-normal">Dosto ko refer karke kamayein</span>
+                        </div>
+                      </button>
+
+                      <div className="my-1 border-t border-white/10" />
+
+                      {/* Profile View */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSection("profile");
+                          setThreeDotOpen(false);
+                          playClickSound();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/5 transition text-gray-200 text-left cursor-pointer"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/5 text-purple-400 flex items-center justify-center">
+                          👤
+                        </div>
+                        <div>
+                          <span className="block text-white">Profile: {user?.name || "Player"}</span>
+                          <span className="text-[10px] text-gray-400 font-normal">Account settings</span>
+                        </div>
+                      </button>
+
+                      {/* Logout */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setThreeDotOpen(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition text-left cursor-pointer"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center">
+                          🚪
+                        </div>
+                        <span>{user?.isDemo ? "Exit Demo" : "Logout Account"}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
               <button
                 onClick={() => setMobileNav((v) => !v)}
                 className="lg:hidden rounded-xl border border-white/10 px-2.5 py-1.5 text-xs font-bold text-gray-300 hover:bg-white/5 cursor-pointer"
@@ -1110,6 +1287,29 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
 
           {mobileNav && (
             <div className="lg:hidden border-t border-white/10 p-3 space-y-1 bg-[#0B1120] animate-fade-in shadow-2xl">
+              {/* Sound Option inside Mobile Nav */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleToggleSound();
+                }}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm bg-white/5 hover:bg-white/10 transition text-gray-200 mb-1 cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  {soundEnabledState ? <Volume2 className="w-4 h-4 text-yellow-400" /> : <VolumeX className="w-4 h-4 text-gray-500" />}
+                  <span>Game Sound (गेम आवाज़)</span>
+                </span>
+                <span
+                  className={`text-xs px-2.5 py-0.5 rounded-full font-black ${
+                    soundEnabledState
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                      : "bg-white/10 text-gray-400"
+                  }`}
+                >
+                  {soundEnabledState ? "SOUND ON 🔊" : "MUTED 🔇"}
+                </span>
+              </button>
+
               {nav.map((item) => (
                 <button
                   key={item.id}
@@ -1180,17 +1380,54 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
                     setSection(tab.id);
                     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
-                  className="flex flex-col items-center justify-center -mt-5 focus:outline-none cursor-pointer group"
+                  className="flex flex-col items-center justify-center -mt-6 focus:outline-none cursor-pointer group select-none"
+                  aria-label="Play CoinFlip"
                 >
-                  <div
-                    className={`h-13 w-13 rounded-full flex items-center justify-center text-2xl shadow-xl transition-transform active:scale-95 ${
-                      isActive
-                        ? "bg-gradient-to-tr from-amber-400 via-yellow-300 to-yellow-500 text-black ring-4 ring-yellow-400/30 scale-105 shadow-yellow-500/40"
-                        : "bg-gradient-to-tr from-yellow-400 to-amber-500 text-black shadow-yellow-500/25 group-hover:scale-105"
-                    }`}
-                  >
-                    🪙
+                  {/* Silver Bharat Coin (सिल्वर कलर का भारत वाला सिक्का) */}
+                  <div className="relative">
+                    {/* Ambient Silver Shimmer Aura */}
+                    <div
+                      className={`absolute -inset-1.5 rounded-full blur-md transition-all ${
+                        isActive
+                          ? "bg-slate-200/60 animate-pulse"
+                          : "bg-slate-400/25 group-hover:bg-slate-300/40"
+                      }`}
+                    />
+
+                    {/* Outer Silver Milled Rim Body */}
+                    <div
+                      className={`relative h-14 w-14 rounded-full p-1 shadow-2xl flex items-center justify-center transition-all duration-300 ${
+                        isActive
+                          ? "bg-gradient-to-br from-white via-slate-300 to-slate-600 ring-4 ring-slate-200/50 scale-110 shadow-slate-200/50"
+                          : "bg-gradient-to-br from-slate-100 via-slate-300 to-slate-500 shadow-black/70 group-hover:scale-105"
+                      }`}
+                    >
+                      {/* Concentric Milled Silver Ring */}
+                      <div className="w-full h-full rounded-full bg-gradient-to-tr from-slate-400 via-slate-100 to-slate-300 p-0.5 shadow-inner border border-slate-400/80 flex items-center justify-center">
+                        {/* Embossed Inner Face with BHARAT, RUPEE & INDIA */}
+                        <div className="w-full h-full rounded-full border border-dashed border-slate-600/70 bg-gradient-to-b from-slate-100 via-slate-200 to-slate-400 flex flex-col items-center justify-center text-slate-900 shadow-[inset_0_2px_4px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(0,0,0,0.35)] relative overflow-hidden">
+                          {/* Specular Diagonal Reflection */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none" />
+
+                          {/* Upper Arch Text: भारत */}
+                          <span className="text-[7.5px] font-black tracking-widest text-slate-900 uppercase leading-none scale-90">
+                            भारत
+                          </span>
+
+                          {/* Center Emblem: Rupee Symbol */}
+                          <span className="text-[14px] font-black leading-tight text-slate-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.85)] my-0.2">
+                            {RUPEE}
+                          </span>
+
+                          {/* Lower Arch Text: INDIA */}
+                          <span className="text-[6.5px] font-black tracking-widest text-slate-900 uppercase leading-none scale-90">
+                            INDIA
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+
                   <span
                     className={`text-[10px] font-black mt-1 tracking-tight ${
                       isActive ? "text-yellow-400 font-black" : "text-gray-300 font-bold"
@@ -1895,12 +2132,22 @@ function GameView({ user, refreshUser, setSection }) {
                 const predictionPayload =
                   curPlacedBet.choice === "HEAD" ? "heads" : curPlacedBet.choice === "TAIL" ? "tails" : "tie";
 
+                let clientToken = null;
+                if (typeof window !== "undefined") {
+                  try {
+                    clientToken =
+                      localStorage.getItem("coinflip_token") ||
+                      sessionStorage.getItem("coinflip_token");
+                  } catch {}
+                }
+
                 const response = await authFetch("/api/game/coinflip", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     prediction: predictionPayload,
                     entryFee: curPlacedBet.amount,
+                    token: clientToken,
                   }),
                 });
 
@@ -2123,135 +2370,51 @@ function GameView({ user, refreshUser, setSection }) {
       )}
 
       {/* Top Header Bar with Live Room Status & Live Winner Ticker */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#111827] border border-white/10 p-3.5 sm:p-4 rounded-2xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-[#0B1120] via-[#111827] to-[#0B1120] border border-yellow-500/20 p-3.5 sm:p-4 rounded-2xl shadow-lg shadow-black/50">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-3.5 w-3.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 ring-2 ring-emerald-400/40"></span>
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-white uppercase tracking-wider">
-                  LIVE ARENA
+                <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <span>⚡</span>
+                  <span>LIVE ARENA</span>
                 </span>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-white/10 text-yellow-300 font-bold border border-yellow-400/20">
+                <span className="font-mono text-xs px-2 py-0.5 rounded bg-yellow-400/10 text-yellow-300 font-black border border-yellow-400/30">
                   Round #{roundId}
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400 hidden sm:block">Non-stop 24x7 Multi-Round Table</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  2,420+ Online Players
+                </span>
+                <span className="text-[10px] text-gray-500">• 24x7 Continuous Loop</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Live Recent Winner Alert Mini Ticker */}
         {activeWinner && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-400/10 border border-yellow-400/30 text-xs text-yellow-300 animate-fade-in">
-            <Trophy className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-yellow-400/15 via-amber-400/20 to-yellow-400/15 border border-yellow-400/40 text-xs text-yellow-300 animate-fade-in shadow-md">
+            <Trophy className="w-4 h-4 text-yellow-400 shrink-0 animate-bounce" />
             <span className="font-semibold truncate max-w-[240px]">
               <strong className="text-white">{activeWinner.name}</strong> won{" "}
-              <strong className="text-green-400">{RUPEE}{activeWinner.amount}</strong> on {activeWinner.side}!
+              <strong className="text-emerald-400 font-black">{RUPEE}{activeWinner.amount}</strong> on {activeWinner.side}!
             </span>
           </div>
         )}
-
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={toggleSound}
-            className="flex items-center gap-1.5 rounded-xl bg-[#0B1120] border border-white/10 hover:border-white/20 px-3 py-2 text-xs font-semibold transition cursor-pointer"
-            title={soundOn ? "Mute Sound" : "Enable Sound"}
-          >
-            {soundOn ? (
-              <>
-                <Volume2 className="h-3.5 w-3.5 text-yellow-400" />
-                <span className="text-gray-200 hidden sm:inline">Sound ON</span>
-              </>
-            ) : (
-              <>
-                <VolumeX className="h-3.5 w-3.5 text-gray-500" />
-                <span className="text-gray-500 hidden sm:inline">Muted</span>
-              </>
-            )}
-          </button>
-
-          <div className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 border ${
-            user?.isDemo
-              ? "bg-yellow-500/10 border-yellow-500/30"
-              : "bg-green-500/10 border-green-500/20"
-          }`}>
-            <div>
-              <p className={`text-[9px] uppercase font-bold leading-none ${
-                user?.isDemo ? "text-yellow-400/90" : "text-green-400/80"
-              }`}>
-                {user?.isDemo ? "Demo Balance" : "Wallet"}
-              </p>
-              <p className={`text-base font-black leading-tight ${
-                user?.isDemo ? "text-yellow-300" : "text-green-400"
-              }`}>
-                {RUPEE}{walletBalance.toFixed(2)}
-              </p>
-            </div>
-            {!user?.isDemo && setSection && (
-              <button
-                type="button"
-                onClick={() => setSection("wallet")}
-                className="ml-1 px-2.5 py-1 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-[11px] shadow transition cursor-pointer"
-              >
-                + Add
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Live Roadmap & Trend Analysis Bar */}
-      <div className="rounded-2xl border border-white/10 bg-[#111827] p-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-yellow-400" />
-            <span className="text-xs font-bold text-gray-200 uppercase tracking-wider">
-              Live Trend Roadmap (Past Outcomes)
-            </span>
-          </div>
-          <div className="flex items-center gap-3 text-xs font-bold">
-            <span className="text-yellow-400">🟡 HEAD {trendStats.headsPercent}%</span>
-            <span className="text-blue-400">🔵 TAIL {trendStats.tailsPercent}%</span>
-            {settings.tieEnabled && (
-              <span className="text-purple-400">🟣 TIE {trendStats.tiesPercent}%</span>
-            )}
-            <span className="px-2 py-0.5 rounded bg-white/10 text-[11px] text-gray-300 border border-white/10">
-              🔥 Streak: {trendStats.streak}
-            </span>
-          </div>
-        </div>
-
-        {/* Outcome Chips Strip */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {historyRoadmap.map((item, idx) => (
-            <div
-              key={idx}
-              className={`h-8 min-w-[34px] px-2 rounded-lg flex items-center justify-center font-black text-xs border shrink-0 transition-all ${
-                idx === 0 ? "scale-110 shadow-md ring-2 ring-yellow-400/50" : "opacity-90"
-              } ${
-                item === "HEAD"
-                  ? "bg-amber-500/20 text-yellow-300 border-amber-500/40"
-                  : item === "TAIL"
-                  ? "bg-blue-500/20 text-blue-300 border-blue-500/40"
-                  : "bg-purple-500/25 text-pink-300 border-purple-500/50"
-              }`}
-              title={idx === 0 ? `Latest Round Winner: ${item}` : `${item}`}
-            >
-              {item === "HEAD" ? "🟡 H" : item === "TAIL" ? "🔵 T" : "🟣 TIE"}
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="grid lg:grid-cols-[1.15fr_.85fr] gap-5">
         {/* Main Live Round Board */}
-        <section className="rounded-3xl border border-white/10 bg-[#111827] p-6 md:p-7 relative overflow-hidden flex flex-col justify-between">
+        <section className="rounded-3xl border border-white/10 bg-[#111827] p-6 md:p-7 relative overflow-hidden flex flex-col justify-between shadow-2xl">
           <div>
-            {/* Round Phase Badge & Real-Time Countdown Header */}
+            {/* Premium Animated Round Phase Badge & Enhanced High-Precision Timer */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <span
@@ -2263,7 +2426,7 @@ function GameView({ user, refreshUser, setSection }) {
                       : "bg-yellow-500/20 text-yellow-300 border-yellow-500/40"
                   }`}
                 >
-                  <span className={`h-2 w-2 rounded-full ${
+                  <span className={`h-2.5 w-2.5 rounded-full ${
                     phase === "BETTING" ? "bg-emerald-400 animate-ping" : phase === "FLIPPING" ? "bg-red-400 animate-spin" : "bg-yellow-400"
                   }`} />
                   <span>
@@ -2283,41 +2446,56 @@ function GameView({ user, refreshUser, setSection }) {
                 )}
               </div>
 
-              {/* Dynamic Live Timer */}
+              {/* Enhanced Super-Polished Live Digital Timer Display */}
               <div className="flex items-center gap-2">
                 <div
-                  className={`flex items-center gap-2 font-mono text-sm sm:text-base font-black px-3 py-1.5 rounded-xl border ${
-                    phase === "BETTING" && countdown <= 4
-                      ? "bg-red-500/30 text-red-300 border-red-500/50 animate-pulse"
+                  className={`relative flex items-center gap-2.5 font-mono px-4 py-2 rounded-2xl border-2 transition-all duration-300 shadow-lg select-none ${
+                    phase === "BETTING" && countdown <= 3
+                      ? "bg-gradient-to-r from-red-600/30 via-rose-500/30 to-red-600/30 text-red-300 border-red-500 shadow-red-500/30 scale-105 animate-pulse"
+                      : phase === "BETTING" && countdown <= 6
+                      ? "bg-gradient-to-r from-amber-500/25 via-yellow-500/25 to-amber-500/25 text-yellow-300 border-amber-400/70 shadow-yellow-500/20"
                       : phase === "FLIPPING"
-                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                      : "bg-white/10 text-gray-200 border-white/10"
+                      ? "bg-gradient-to-r from-cyan-600/30 to-blue-600/30 text-cyan-300 border-cyan-400/80 shadow-cyan-500/25"
+                      : "bg-slate-900/90 text-white border-white/20 shadow-black/40"
                   }`}
                 >
-                  <Clock className="w-4 h-4 text-yellow-400" />
-                  <span>
-                    {phase === "BETTING"
-                      ? `00:${countdown < 10 ? `0${countdown}` : countdown}s`
+                  <div className={`p-1 rounded-lg ${
+                    phase === "BETTING" && countdown <= 3
+                      ? "bg-red-500 text-white animate-bounce"
                       : phase === "FLIPPING"
-                      ? "SPINNING..."
-                      : `Next: 00:0${countdown}s`}
-                  </span>
+                      ? "bg-cyan-500 text-black animate-spin"
+                      : "bg-yellow-400 text-black"
+                  }`}>
+                    <Clock className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[9px] font-sans font-black tracking-widest uppercase opacity-75 leading-none">
+                      {phase === "BETTING" ? "BET TIMER" : phase === "FLIPPING" ? "STATUS" : "NEXT ROUND"}
+                    </span>
+                    <span className="text-base sm:text-lg font-black tracking-tight leading-tight pt-0.5">
+                      {phase === "BETTING"
+                        ? `00:${countdown < 10 ? `0${countdown}` : countdown}s`
+                        : phase === "FLIPPING"
+                        ? "FLIPPING..."
+                        : `Next: 00:0${countdown}s`}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Glowing Live Countdown Progress Bar */}
+            {/* Glowing Dual-Color Live Countdown Progress Bar */}
             <div className="mb-4">
-              <div className="w-full h-2 rounded-full bg-slate-900 border border-white/10 overflow-hidden relative">
+              <div className="w-full h-2.5 rounded-full bg-slate-950 border border-white/10 overflow-hidden relative p-0.5 shadow-inner">
                 <div
-                  className={`h-full transition-all duration-1000 ease-linear rounded-full ${
+                  className={`h-full transition-all duration-1000 ease-linear rounded-full shadow-md ${
                     phase === "BETTING" && countdown <= 3
-                      ? "bg-gradient-to-r from-red-500 to-rose-600 animate-pulse"
+                      ? "bg-gradient-to-r from-red-500 via-rose-500 to-red-600 animate-pulse shadow-red-500/50"
                       : phase === "BETTING" && countdown <= 6
-                      ? "bg-gradient-to-r from-amber-400 to-yellow-500"
+                      ? "bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 shadow-yellow-400/50"
                       : phase === "FLIPPING"
-                      ? "bg-gradient-to-r from-cyan-400 to-blue-500 animate-pulse"
-                      : "bg-gradient-to-r from-emerald-400 to-teal-500"
+                      ? "bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 animate-pulse shadow-cyan-400/50"
+                      : "bg-gradient-to-r from-emerald-400 to-teal-400 shadow-emerald-400/50"
                   }`}
                   style={{
                     width: `${
@@ -2332,12 +2510,17 @@ function GameView({ user, refreshUser, setSection }) {
               </div>
             </div>
 
-            {/* Interactive 3D Coin Display */}
+            {/* Interactive 3D Coin Display (Tapping coin also places bet & flips!) */}
             <CoinDisplay
               side={coin}
               isFlipping={phase === "FLIPPING"}
               wind={settings.windPhysicsEnabled ? wind : null}
               isUrgent={phase === "BETTING" && countdown <= 4}
+              onClick={() => {
+                if (phase === "BETTING" && !placedBet) {
+                  handleLockBet();
+                }
+              }}
             />
 
             {/* Active Round User Bet Status Badge */}
@@ -2457,9 +2640,9 @@ function GameView({ user, refreshUser, setSection }) {
               </div>
             )}
 
-            {/* 3 Outcome Prediction Choice Buttons */}
+            {/* 3 Outcome Prediction Choice Buttons with Dynamic Win / Loss Badges on Top */}
             <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5 mt-4">
-              {/* HEAD CHOICE */}
+              {/* HEAD CHOICE BUTTON */}
               <button
                 disabled={phase !== "BETTING" || Boolean(placedBet)}
                 onClick={() => {
@@ -2474,6 +2657,21 @@ function GameView({ user, refreshUser, setSection }) {
                     : "bg-[#0B1120] border-white/10 text-white hover:border-yellow-400/40 hover:bg-white/[0.03]"
                 } ${phase !== "BETTING" || Boolean(placedBet) ? "opacity-80" : ""}`}
               >
+                {/* Dynamic Win / Loss Indicator Badge on Top */}
+                {phase === "RESULT" && result?.result && (
+                  <div className="absolute -top-2.5 right-2 z-20">
+                    {result.result === "HEAD" ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-md flex items-center gap-0.5 animate-bounce ring-2 ring-emerald-300">
+                        <span>✓</span> WIN
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600/90 text-rose-100 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow flex items-center gap-0.5 ring-1 ring-rose-400/50">
+                        <span>✗</span> LOSS
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <span className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-600 border border-yellow-100 flex items-center justify-center text-black text-xs sm:text-sm font-black shadow shrink-0">
                   👑
                 </span>
@@ -2492,7 +2690,7 @@ function GameView({ user, refreshUser, setSection }) {
                 </div>
               </button>
 
-              {/* TIE / EDGE CHOICE */}
+              {/* TIE / EDGE CHOICE BUTTON */}
               <button
                 disabled={phase !== "BETTING" || Boolean(placedBet)}
                 onClick={() => {
@@ -2507,6 +2705,21 @@ function GameView({ user, refreshUser, setSection }) {
                     : "bg-[#0B1120] border-purple-500/30 text-white hover:border-purple-400 hover:bg-purple-500/10"
                 } ${phase !== "BETTING" || Boolean(placedBet) ? "opacity-80" : ""}`}
               >
+                {/* Dynamic Win / Loss Indicator Badge on Top */}
+                {phase === "RESULT" && result?.result && (
+                  <div className="absolute -top-2.5 right-2 z-20">
+                    {result.result === "TIE" ? (
+                      <span className="px-2 py-0.5 rounded-full bg-fuchsia-500 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-md flex items-center gap-0.5 animate-bounce ring-2 ring-pink-300">
+                        <span>★</span> 10X WIN
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600/90 text-rose-100 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow flex items-center gap-0.5 ring-1 ring-rose-400/50">
+                        <span>✗</span> LOSS
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <span className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-fuchsia-400 to-purple-700 border border-fuchsia-200 flex items-center justify-center text-white text-xs sm:text-sm font-black shadow shrink-0">
                   ⚖️
                 </span>
@@ -2527,7 +2740,7 @@ function GameView({ user, refreshUser, setSection }) {
                 </div>
               </button>
 
-              {/* TAIL CHOICE */}
+              {/* TAIL CHOICE BUTTON */}
               <button
                 disabled={phase !== "BETTING" || Boolean(placedBet)}
                 onClick={() => {
@@ -2542,6 +2755,21 @@ function GameView({ user, refreshUser, setSection }) {
                     : "bg-[#0B1120] border-white/10 text-white hover:border-yellow-400/40 hover:bg-white/[0.03]"
                 } ${phase !== "BETTING" || Boolean(placedBet) ? "opacity-80" : ""}`}
               >
+                {/* Dynamic Win / Loss Indicator Badge on Top */}
+                {phase === "RESULT" && result?.result && (
+                  <div className="absolute -top-2.5 right-2 z-20">
+                    {result.result === "TAIL" ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-md flex items-center gap-0.5 animate-bounce ring-2 ring-emerald-300">
+                        <span>✓</span> WIN
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600/90 text-rose-100 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow flex items-center gap-0.5 ring-1 ring-rose-400/50">
+                        <span>✗</span> LOSS
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <span className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-600 border border-yellow-100 flex items-center justify-center text-black text-xs sm:text-sm font-black shadow shrink-0">
                   {RUPEE}
                 </span>
@@ -2599,8 +2827,8 @@ function GameView({ user, refreshUser, setSection }) {
             </div>
 
             {/* Quick Multiplier Chips */}
-            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-2.5">
-              {[10, 50, 100, 500].map((amount) => (
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mt-2.5">
+              {[10, 50, 100, 500, 1000].map((amount) => (
                 <button
                   key={amount}
                   disabled={phase !== "BETTING" || Boolean(placedBet)}
@@ -2609,9 +2837,9 @@ function GameView({ user, refreshUser, setSection }) {
                     setBet(String(amount));
                     setErrorMessage("");
                   }}
-                  className={`py-2 rounded-xl font-bold text-xs border transition cursor-pointer ${
+                  className={`py-2 rounded-xl font-black text-xs border transition active:scale-95 cursor-pointer ${
                     bet === String(amount)
-                      ? "bg-yellow-400 text-black border-yellow-300 font-black shadow-md"
+                      ? "bg-gradient-to-r from-yellow-400 to-amber-400 text-black border-yellow-300 shadow-md shadow-yellow-400/30 ring-2 ring-yellow-400/50"
                       : "bg-white/5 hover:bg-white/10 border-white/10 text-white"
                   }`}
                 >
@@ -2623,10 +2851,24 @@ function GameView({ user, refreshUser, setSection }) {
                 disabled={phase !== "BETTING" || Boolean(placedBet)}
                 onClick={() => {
                   playClickSound();
+                  const half = Math.max(settings.minBet, Math.floor((Number(bet) || 10) / 2));
+                  setBet(String(half));
+                }}
+                className="py-2 rounded-xl font-black text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 transition active:scale-95 cursor-pointer"
+                title="Half Bet (1/2)"
+              >
+                1/2
+              </button>
+              <button
+                type="button"
+                disabled={phase !== "BETTING" || Boolean(placedBet)}
+                onClick={() => {
+                  playClickSound();
                   const double = Math.min(settings.maxBet, (Number(bet) || 10) * 2);
                   setBet(String(double));
                 }}
-                className="py-2 rounded-xl font-bold text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-yellow-300 transition cursor-pointer"
+                className="py-2 rounded-xl font-black text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-yellow-300 transition active:scale-95 cursor-pointer"
+                title="Double Bet (2X)"
               >
                 2X
               </button>
@@ -2638,7 +2880,8 @@ function GameView({ user, refreshUser, setSection }) {
                   const maxAffordable = Math.min(settings.maxBet, Math.max(settings.minBet, Math.floor(walletBalance)));
                   setBet(String(maxAffordable));
                 }}
-                className="py-2 rounded-xl font-bold text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-amber-400 transition cursor-pointer"
+                className="py-2 rounded-xl font-black text-xs bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 transition active:scale-95 cursor-pointer"
+                title="Max Affordable Bet"
               >
                 MAX
               </button>

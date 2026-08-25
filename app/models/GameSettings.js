@@ -3,6 +3,10 @@ import { getModel } from "../lib/modelWrapper.js";
 
 const gameSettingsSchema = new mongoose.Schema(
   {
+    _id: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+
     // Game
     CoinFlipEnabled: {
       type: Boolean,
