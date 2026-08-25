@@ -98,7 +98,7 @@ export async function POST(request) {
         email: user.email,
         role: user.role,
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "coinflip_jwt_super_secret_key_2026",
       {
         expiresIn: "7d",
       }
@@ -123,8 +123,8 @@ export async function POST(request) {
 
     response.cookies.set("token", token, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });

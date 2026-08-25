@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
-// Ensure JWT secret has a safe default for development/preview
-process.env.JWT_SECRET = process.env.JWT_SECRET || "coinflip_jwt_secret_ai_studio_2026";
+// Ensure JWT secret has a safe default for development/preview/Vercel
+process.env.JWT_SECRET = process.env.JWT_SECRET || "coinflip_jwt_super_secret_key_2026";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 

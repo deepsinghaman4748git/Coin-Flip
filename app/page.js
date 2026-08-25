@@ -955,175 +955,280 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
     { id: "profile", label: "Profile" },
   ];
 
+  const mobileTabs = [
+    { id: "home", label: "Home", icon: "🏠" },
+    { id: "spin", label: "Daily Spin", icon: "🎁" },
+    { id: "game", label: "Play Flip", icon: "🪙", isCenter: true },
+    { id: "referral", label: "Refer", icon: "👥" },
+    { id: "wallet", label: "Wallet", icon: "💳" },
+  ];
+
   return (
-    <main className="min-h-screen bg-[#070B14] text-white">
-      {/* Demo Mode Notice Bar */}
-      {user?.isDemo && (
-        <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black text-xs py-2.5 px-4 flex flex-wrap items-center justify-between shadow-lg sticky top-0 z-50 gap-2">
-          <div className="flex items-center gap-2">
-            <span className="bg-black text-yellow-300 text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">
-              🎮 FREE DEMO MODE
-            </span>
-            <span>Aap Free Trial Demo me khel rahe hain (₹100 Virtual Balance).</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={logout}
-              className="bg-black hover:bg-slate-900 text-yellow-400 font-black px-3.5 py-1 rounded-lg text-xs transition shadow"
-            >
-              Register &amp; Win Real Cash ➔
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Broadcast Announcement Bar */}
-      {announcement && !announcementDismissed && !user?.isDemo && (
-        <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-bold text-xs py-2 px-4 flex items-center justify-between shadow-md relative z-50">
-          <div className="flex items-center gap-2 overflow-hidden flex-1 mr-3">
-            <span className="bg-black text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0">
-              📢 NOTICE
-            </span>
-            <div className="truncate font-semibold tracking-wide">
-              {announcement}
+    <main className="min-h-screen bg-[#070B14] text-white flex flex-col justify-between">
+      <div>
+        {/* Demo Mode Notice Bar */}
+        {user?.isDemo && (
+          <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black text-xs py-2.5 px-4 flex flex-wrap items-center justify-between shadow-lg sticky top-0 z-50 gap-2">
+            <div className="flex items-center gap-2">
+              <span className="bg-black text-yellow-300 text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">
+                🎮 FREE DEMO MODE
+              </span>
+              <span>Aap Free Trial Demo me khel rahe hain (₹100 Virtual Balance).</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={logout}
+                className="bg-black hover:bg-slate-900 text-yellow-400 font-black px-3.5 py-1 rounded-lg text-xs transition shadow cursor-pointer"
+              >
+                Register &amp; Win Real Cash ➔
+              </button>
             </div>
           </div>
-          <button
-            onClick={() => setAnnouncementDismissed(true)}
-            className="text-slate-950/70 hover:text-black text-sm px-1.5 py-0.5 rounded hover:bg-black/10 transition shrink-0 font-black"
-            title="Dismiss Notice"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+        )}
 
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070B14]/90 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <button
-            onClick={() => setSection("home")}
-            className="flex items-center gap-3"
-          >
-            <span className="h-10 w-10 rounded-xl bg-yellow-400 text-black flex items-center justify-center font-black">
-              CF
-            </span>
-            <span className="text-xl font-black">CoinFlip</span>
-            {user?.isDemo && (
-              <span className="px-2 py-0.5 rounded-md bg-yellow-400/20 text-yellow-300 border border-yellow-400/30 text-[10px] font-black uppercase">
-                Demo
+        {/* Broadcast Announcement Bar */}
+        {announcement && !announcementDismissed && !user?.isDemo && (
+          <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-bold text-xs py-2 px-4 flex items-center justify-between shadow-md relative z-50">
+            <div className="flex items-center gap-2 overflow-hidden flex-1 mr-3">
+              <span className="bg-black text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0">
+                📢 NOTICE
               </span>
-            )}
-          </button>
-
-          <div className="hidden lg:flex items-center gap-1.5">
-            {nav.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setSection(item.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 ${
-                  section === item.id
-                    ? "bg-yellow-400 text-black shadow-md shadow-yellow-500/20"
-                    : "text-gray-300 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {user?.role === "admin" && (
-              <a
-                href="/admin/dashboard"
-                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold hover:bg-purple-500/30 transition"
-              >
-                <span>⚙️</span>
-                <span>Admin Panel</span>
-              </a>
-            )}
-            <div
-              id="header-balance-container"
-              onClick={handleHeaderRefresh}
-              title={user?.isDemo ? "Demo Balance" : "Click to refresh live balance"}
-              className={`flex items-center rounded-xl px-3.5 py-1.5 shadow-sm cursor-pointer transition group select-none ${
-                user?.isDemo
-                  ? "bg-yellow-500/15 border border-yellow-500/30 hover:bg-yellow-500/25"
-                  : "bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20"
-              }`}
-            >
-              <span className={`text-xs font-semibold mr-2 uppercase tracking-wider flex items-center gap-1 ${
-                user?.isDemo ? "text-yellow-300" : "text-emerald-400/80"
-              }`}>
-                <span>{user?.isDemo ? "Demo Chips" : "Balance"}</span>
-                {!user?.isDemo && (
-                  <span className={`text-[10px] text-emerald-300 group-hover:rotate-180 transition-transform ${isSyncingBalance ? "animate-spin" : ""}`}>🔄</span>
-                )}
-              </span>
-              <span id="header-wallet-balance" className={`font-black text-sm sm:text-base tracking-tight tabular-nums ${
-                user?.isDemo ? "text-yellow-300" : "text-emerald-400"
-              }`}>
-                {RUPEE}
-                {Number(user?.walletBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
+              <div className="truncate font-semibold tracking-wide">
+                {announcement}
+              </div>
             </div>
             <button
-              onClick={() => setMobileNav((v) => !v)}
-              className="lg:hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-bold"
+              onClick={() => setAnnouncementDismissed(true)}
+              className="text-slate-950/70 hover:text-black text-sm px-1.5 py-0.5 rounded hover:bg-black/10 transition shrink-0 font-black cursor-pointer"
+              title="Dismiss Notice"
             >
-              Menu
-            </button>
-            <button
-              onClick={logout}
-              className="hidden sm:block rounded-xl border border-red-500/20 text-red-400 px-4 py-2 text-sm font-bold hover:bg-red-500/10 transition"
-            >
-              {user?.isDemo ? "Exit Demo ✕" : "Logout"}
+              ✕
             </button>
           </div>
-        </div>
+        )}
 
-        {mobileNav && (
-          <div className="lg:hidden border-t border-white/10 p-3 space-y-1 bg-[#0B1120]">
-            {nav.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setSection(item.id);
-                  setMobileNav(false);
-                }}
-                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm ${
-                  section === item.id
-                    ? "bg-yellow-400 text-black"
-                    : "text-gray-300 hover:bg-white/5"
+        <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070B14]/95 backdrop-blur-xl">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
+            <button
+              onClick={() => setSection("home")}
+              className="flex items-center gap-2.5 cursor-pointer select-none shrink-0"
+            >
+              <span className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-yellow-400 text-black flex items-center justify-center font-black shadow-md shadow-yellow-400/20">
+                CF
+              </span>
+              <span className="text-lg sm:text-xl font-black tracking-tight">CoinFlip</span>
+              {user?.isDemo && (
+                <span className="px-1.5 py-0.5 rounded-md bg-yellow-400/20 text-yellow-300 border border-yellow-400/30 text-[9px] font-black uppercase">
+                  Demo
+                </span>
+              )}
+            </button>
+
+            {/* Desktop Navigation Links */}
+            <div className="hidden lg:flex items-center gap-1">
+              {nav.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setSection(item.id)}
+                  className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    section === item.id
+                      ? "bg-yellow-400 text-black shadow-md shadow-yellow-500/20"
+                      : "text-gray-300 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Top Right Header Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {user?.role === "admin" && (
+                <a
+                  href="/admin/dashboard"
+                  className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold hover:bg-purple-500/30 transition"
+                >
+                  <span>⚙️</span>
+                  <span>Admin</span>
+                </a>
+              )}
+
+              {/* Wallet Balance Badge */}
+              <div
+                id="header-balance-container"
+                onClick={handleHeaderRefresh}
+                title={user?.isDemo ? "Demo Balance" : "Click to refresh live balance"}
+                className={`flex items-center rounded-xl px-2.5 sm:px-3.5 py-1.5 shadow-sm cursor-pointer transition group select-none ${
+                  user?.isDemo
+                    ? "bg-yellow-500/15 border border-yellow-500/30 hover:bg-yellow-500/25"
+                    : "bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20"
                 }`}
               >
-                {item.label}
-              </button>
-            ))}
-            <button
-              onClick={logout}
-              className="w-full text-left px-4 py-3 rounded-xl text-red-400 font-bold text-sm"
-            >
-              {user?.isDemo ? "Exit Demo ✕" : "Logout"}
-            </button>
-          </div>
-        )}
-      </header>
+                <span className={`text-[10px] sm:text-xs font-semibold mr-1.5 uppercase tracking-wider flex items-center gap-1 ${
+                  user?.isDemo ? "text-yellow-300" : "text-emerald-400/80"
+                }`}>
+                  <span className="hidden sm:inline">{user?.isDemo ? "Demo Chips" : "Balance"}</span>
+                  <span className="sm:hidden">₹</span>
+                  {!user?.isDemo && (
+                    <span className={`text-[10px] text-emerald-300 group-hover:rotate-180 transition-transform ${isSyncingBalance ? "animate-spin" : ""}`}>🔄</span>
+                  )}
+                </span>
+                <span id="header-wallet-balance" className={`font-black text-xs sm:text-base tracking-tight tabular-nums ${
+                  user?.isDemo ? "text-yellow-300" : "text-emerald-400"
+                }`}>
+                  {RUPEE}
+                  {Number(user?.walletBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7">
-        {section === "home" && (
-          <DashboardView user={user} setSection={setSection} refreshUser={refreshUser} />
-        )}
-        {section === "game" && <GameView user={user} refreshUser={refreshUser} setSection={setSection} />}
-        {section === "spin" && (
-          <DailySpinView user={user} refreshUser={refreshUser} authFetch={authFetch} />
-        )}
-        {section === "referral" && (
-          <ReferralView user={user} refreshUser={refreshUser} authFetch={authFetch} />
-        )}
-        {section === "wallet" && <WalletView user={user} refreshUser={refreshUser} />}
-        {section === "history" && <HistoryView />}
-        {section === "profile" && <ProfileView user={user} />}
+              {!user?.isDemo && (
+                <button
+                  type="button"
+                  onClick={() => setSection("wallet")}
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-300 hover:to-amber-300 text-black font-black text-xs shadow-md transition cursor-pointer shrink-0"
+                >
+                  + Add ₹
+                </button>
+              )}
+
+              <button
+                onClick={() => setMobileNav((v) => !v)}
+                className="lg:hidden rounded-xl border border-white/10 px-2.5 py-1.5 text-xs font-bold text-gray-300 hover:bg-white/5 cursor-pointer"
+                title="Toggle Menu"
+              >
+                {mobileNav ? "✕" : "☰"}
+              </button>
+
+              <button
+                onClick={logout}
+                className="hidden sm:block rounded-xl border border-red-500/20 text-red-400 px-3 py-1.5 text-xs font-bold hover:bg-red-500/10 transition cursor-pointer"
+              >
+                {user?.isDemo ? "Exit Demo" : "Logout"}
+              </button>
+            </div>
+          </div>
+
+          {mobileNav && (
+            <div className="lg:hidden border-t border-white/10 p-3 space-y-1 bg-[#0B1120] animate-fade-in shadow-2xl">
+              {nav.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setSection(item.id);
+                    setMobileNav(false);
+                    playClickSound();
+                  }}
+                  className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm transition flex items-center justify-between ${
+                    section === item.id
+                      ? "bg-yellow-400 text-black shadow-md"
+                      : "text-gray-300 hover:bg-white/5"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  {section === item.id && <span>➔</span>}
+                </button>
+              ))}
+              {user?.role === "admin" && (
+                <a
+                  href="/admin/dashboard"
+                  className="w-full text-left px-4 py-3 rounded-xl font-bold text-sm bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-between"
+                >
+                  <span>⚙️ Admin Management Panel</span>
+                  <span>➔</span>
+                </a>
+              )}
+              <button
+                onClick={logout}
+                className="w-full text-left px-4 py-3 rounded-xl text-red-400 font-bold text-sm hover:bg-red-500/10 transition flex items-center justify-between"
+              >
+                <span>{user?.isDemo ? "Exit Demo ✕" : "Logout Account 🚪"}</span>
+              </button>
+            </div>
+          )}
+        </header>
+
+        {/* Main Content Area */}
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 py-5 sm:py-7 pb-24 lg:pb-10">
+          {section === "home" && (
+            <DashboardView user={user} setSection={setSection} refreshUser={refreshUser} />
+          )}
+          {section === "game" && <GameView user={user} refreshUser={refreshUser} setSection={setSection} />}
+          {section === "spin" && (
+            <DailySpinView user={user} refreshUser={refreshUser} authFetch={authFetch} />
+          )}
+          {section === "referral" && (
+            <ReferralView user={user} refreshUser={refreshUser} authFetch={authFetch} />
+          )}
+          {section === "wallet" && <WalletView user={user} refreshUser={refreshUser} />}
+          {section === "history" && <HistoryView />}
+          {section === "profile" && <ProfileView user={user} />}
+        </div>
       </div>
+
+      {/* Sleek Native-Style Mobile Bottom Navigation Bar (Dock) */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0B1120]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 shadow-[0_-10px_25px_rgba(0,0,0,0.5)]">
+        <div className="max-w-md mx-auto flex items-center justify-around">
+          {mobileTabs.map((tab) => {
+            const isActive = section === tab.id;
+            if (tab.isCenter) {
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    playClickSound();
+                    setSection(tab.id);
+                    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="flex flex-col items-center justify-center -mt-5 focus:outline-none cursor-pointer group"
+                >
+                  <div
+                    className={`h-13 w-13 rounded-full flex items-center justify-center text-2xl shadow-xl transition-transform active:scale-95 ${
+                      isActive
+                        ? "bg-gradient-to-tr from-amber-400 via-yellow-300 to-yellow-500 text-black ring-4 ring-yellow-400/30 scale-105 shadow-yellow-500/40"
+                        : "bg-gradient-to-tr from-yellow-400 to-amber-500 text-black shadow-yellow-500/25 group-hover:scale-105"
+                    }`}
+                  >
+                    🪙
+                  </div>
+                  <span
+                    className={`text-[10px] font-black mt-1 tracking-tight ${
+                      isActive ? "text-yellow-400 font-black" : "text-gray-300 font-bold"
+                    }`}
+                  >
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            }
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  playClickSound();
+                  setSection(tab.id);
+                  if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition cursor-pointer active:scale-95 ${
+                  isActive
+                    ? "text-yellow-400 font-black"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                <span className="text-lg leading-none mb-0.5">{tab.icon}</span>
+                <span className={`text-[10px] ${isActive ? "font-black" : "font-semibold"}`}>
+                  {tab.label}
+                </span>
+                {isActive && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 mt-0.5 animate-pulse" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </main>
   );
 }
