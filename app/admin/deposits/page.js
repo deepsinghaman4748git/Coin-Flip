@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { authFetch } from "../../lib/clientAuth";
+import { authFetch, safeJson } from "../../lib/clientAuth";
 
 const RUPEE = "₹";
 
@@ -40,11 +40,11 @@ export default function AdminDepositsPage() {
     try {
       setLoading(true);
       const response = await authFetch("/api/admin/deposits", { cache: "no-store" });
-      const data = await response.json();
-      if (data.success) {
+      const data = await safeJson(response);
+      if (data?.success) {
         setDeposits(data.deposits || []);
       } else {
-        showToast(data.message || "Failed to load deposits");
+        showToast(data?.message || "Failed to load deposits");
       }
     } catch (error) {
       console.error("Deposit loading error:", error);
@@ -89,14 +89,14 @@ export default function AdminDepositsPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-      if (data.success) {
+      const data = await safeJson(response);
+      if (data?.success) {
         showToast(data.message || "✅ Deposit approved successfully!");
         setApproveModalOpen(false);
         setSelectedApproveTx(null);
         await loadDeposits();
       } else {
-        alert(data.message || "Failed to approve deposit");
+        alert(data?.message || "Failed to approve deposit");
       }
     } catch (error) {
       console.error("Approve error:", error);
@@ -128,14 +128,14 @@ export default function AdminDepositsPage() {
         }),
       });
 
-      const data = await response.json();
-      if (data.success) {
+      const data = await safeJson(response);
+      if (data?.success) {
         showToast("❌ Deposit rejected successfully.");
         setRejectModalOpen(false);
         setSelectedTx(null);
         await loadDeposits();
       } else {
-        alert(data.message || "Failed to reject deposit");
+        alert(data?.message || "Failed to reject deposit");
       }
     } catch (error) {
       console.error("Reject error:", error);
@@ -383,11 +383,11 @@ export default function AdminDepositsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredDeposits.map((item) => {
+                filteredDeposits.map((item, idx) => {
                   const isDuplicateUTR = item.utr && stats.utrCounts[item.utr] > 1;
 
                   return (
-                    <tr key={item._id} className="hover:bg-slate-800/40 transition">
+                    <tr key={item._id || item.id || `deposit-${idx}-${item.createdAt || ""}`} className="hover:bg-slate-800/40 transition">
                       {/* User details */}
                       <td className="py-4 px-4">
                         <div className="font-bold text-white text-sm">{item.user?.name || "Anonymous Player"}</div>

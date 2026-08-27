@@ -23,12 +23,13 @@ export async function POST(request) {
       );
     }
 
-    const {
-      transactionId,
-      grantBonus = false,
-      bonusAmount: customBonusAmount,
-      bonusNote = "",
-    } = await request.json();
+    const body = await request.json();
+    const transactionId =
+      body.transactionId || body.depositId || body.id || body._id;
+
+    const grantBonus = Boolean(body.grantBonus);
+    const customBonusAmount = body.bonusAmount;
+    const bonusNote = body.bonusNote || "";
 
     if (!transactionId) {
       return NextResponse.json(
@@ -61,7 +62,8 @@ export async function POST(request) {
       );
     }
 
-    const user = await User.findById(transaction.user);
+    const targetUserId = transaction.user?._id || transaction.user;
+    const user = await User.findById(targetUserId);
 
     if (!user) {
       return NextResponse.json(

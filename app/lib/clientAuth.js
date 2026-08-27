@@ -60,14 +60,32 @@ export async function authFetch(url, options = {}) {
 }
 
 export async function safeJson(response) {
-  if (!response) return null;
+  if (!response) return { success: false, message: "No response received" };
   try {
     const text = await response.text();
-    if (text && (text.startsWith("{") || text.startsWith("["))) {
-      return JSON.parse(text);
+    if (!text || !text.trim()) {
+      return { success: false, message: "Empty response received" };
     }
-    return null;
-  } catch {
-    return null;
+    const trimmed = text.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      return JSON.parse(trimmed);
+    }
+    // If response is HTML or plain text (e.g. 404 / 401 / 500 error page)
+    if (response.status === 401 || response.status === 403) {
+      return {
+        success: false,
+        unauthorized: true,
+        message: "Authentication required. Please log in.",
+      };
+    }
+    return {
+      success: false,
+      message: `Server returned status ${response.status}`,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: "Unable to process server response",
+    };
   }
 }

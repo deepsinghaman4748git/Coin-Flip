@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Volume2, VolumeX, Sparkles, Bot, TrendingUp, Clock, RotateCcw, Trophy, CheckCircle2, ShieldCheck, Flame, Zap, MoreVertical } from "lucide-react";
 import DailySpinView from "./components/DailySpinView.jsx";
 import ReferralView from "./components/ReferralView.jsx";
+import BharatCoinLogo from "./components/BharatCoinLogo.jsx";
 import {
   isSoundEnabled,
   setSoundEnabled,
@@ -57,29 +58,42 @@ export default function Home() {
       // Don't override if current user is in demo mode
       if (user?.isDemo) return;
 
-      const cached =
-        typeof window !== "undefined"
-          ? localStorage.getItem("coinflip_user")
-          : null;
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          if (!parsed.isDemo) setUser(parsed);
-        } catch {}
+      let hasCachedSession = false;
+      if (typeof window !== "undefined") {
+        const cached = localStorage.getItem("coinflip_user");
+        const token = localStorage.getItem("coinflip_token");
+
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (!parsed.isDemo) {
+              setUser(parsed);
+              hasCachedSession = true;
+              setBooting(false); // Instant render from cache!
+            }
+          } catch {}
+        } else if (!token) {
+          // No token exists, show login screen immediately without waiting
+          setBooting(false);
+          return;
+        }
       }
 
+      // Revalidate in background
       const response = await authFetch("/api/me", { cache: "no-store" });
       const data = await response.json().catch(() => null);
-      if (response.ok && data?.success) {
+      if (response.ok && data?.success && data.user) {
         setUser(data.user);
         if (typeof window !== "undefined") {
           localStorage.setItem("coinflip_user", JSON.stringify(data.user));
         }
       } else {
-        if (!cached && !user?.isDemo) setUser(null);
+        if (!hasCachedSession && !user?.isDemo) {
+          setUser(null);
+        }
       }
     } catch {
-      // Keep cached if offline
+      // Keep cached session if offline
     } finally {
       setBooting(false);
     }
@@ -150,11 +164,11 @@ export default function Home() {
 function LoadingScreen() {
   return (
     <main className="min-h-screen bg-[#070B14] text-white flex items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-yellow-400 text-black flex items-center justify-center text-xl font-black">
-          CF
+      <div className="text-center flex flex-col items-center">
+        <div className="mb-4">
+          <BharatCoinLogo size="xl" animate={true} />
         </div>
-        <p className="text-gray-400">Loading CoinFlip...</p>
+        <p className="text-gray-400 font-medium">Loading CoinFlip भारत...</p>
       </div>
     </main>
   );
@@ -433,9 +447,7 @@ function AuthScreen({ mode, onModeChange, onLoggedIn, onStartDemo }) {
             onClick={() => onModeChange("login")}
             className="flex items-center gap-3"
           >
-            <span className="h-11 w-11 rounded-xl bg-yellow-400 text-black flex items-center justify-center font-black">
-              CF
-            </span>
+            <BharatCoinLogo size="md" />
             <span className="text-2xl font-black tracking-tight">CoinFlip</span>
           </button>
 
@@ -901,7 +913,6 @@ const inputClass =
   "w-full rounded-xl bg-[#0B1120] border border-white/10 px-4 py-3.5 outline-none focus:border-yellow-400 text-white placeholder:text-gray-600";
 
 function AppShell({ user, section, setSection, logout, refreshUser }) {
-  const [mobileNav, setMobileNav] = useState(false);
   const [threeDotOpen, setThreeDotOpen] = useState(false);
   const [soundEnabledState, setSoundEnabledState] = useState(true);
   const [announcement, setAnnouncement] = useState("");
@@ -943,18 +954,27 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
     }
 
     const onFocus = () => {
-      refreshUser();
-      fetchNotice();
+      if (document.visibilityState === "visible") {
+        refreshUser();
+        fetchNotice();
+      }
     };
 
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
 
     fetchNotice();
-    const noticeInterval = setInterval(fetchNotice, 25000);
+    const noticeInterval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchNotice();
+      }
+    }, 45000);
+
     const balanceInterval = setInterval(() => {
-      refreshUser();
-    }, 3500);
+      if (document.visibilityState === "visible") {
+        refreshUser();
+      }
+    }, 15000);
 
     return () => {
       window.removeEventListener("focus", onFocus);
@@ -1038,9 +1058,7 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
               onClick={() => setSection("home")}
               className="flex items-center gap-2.5 cursor-pointer select-none shrink-0"
             >
-              <span className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-yellow-400 text-black flex items-center justify-center font-black shadow-md shadow-yellow-400/20">
-                CF
-              </span>
+              <BharatCoinLogo size="sm" />
               <span className="text-lg sm:text-xl font-black tracking-tight">CoinFlip</span>
               {user?.isDemo && (
                 <span className="px-1.5 py-0.5 rounded-md bg-yellow-400/20 text-yellow-300 border border-yellow-400/30 text-[9px] font-black uppercase">
@@ -1116,52 +1134,58 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
                 </button>
               )}
 
-              {/* Three-Dot Menu Button (Sound, Rules, Support, etc.) */}
+              {/* Single Unified Three-Dot Menu Button (Sound, Navigation, Rules, Profile, Logout) */}
               <div className="relative">
                 <button
                   type="button"
+                  id="main-options-menu-btn"
                   onClick={() => setThreeDotOpen((v) => !v)}
-                  className="rounded-xl border border-white/10 hover:border-yellow-400/40 px-2.5 py-2 text-gray-300 hover:text-white hover:bg-white/10 text-xs font-bold transition flex items-center justify-center cursor-pointer shadow-sm"
-                  title="Menu / Settings & Sound"
+                  className={`rounded-xl border px-2.5 py-1.5 sm:py-2 text-xs font-bold transition flex items-center justify-center cursor-pointer shadow-sm ${
+                    threeDotOpen
+                      ? "bg-yellow-400/20 border-yellow-400 text-yellow-300"
+                      : "border-white/15 hover:border-yellow-400/50 text-gray-300 hover:text-white hover:bg-white/10"
+                  }`}
+                  title="Menu & Settings"
                   aria-label="Options Menu"
                 >
                   <MoreVertical className="w-4 h-4 text-yellow-400" />
                 </button>
 
-                {/* Three-Dot Dropdown Menu Modal */}
+                {/* Unified Three-Dot Dropdown Menu Modal */}
                 {threeDotOpen && (
                   <>
                     <div
-                      className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
+                      className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]"
                       onClick={() => setThreeDotOpen(false)}
                     />
-                    <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 rounded-2xl bg-[#0B1120] border border-white/15 p-2 shadow-2xl z-50 animate-fade-in space-y-1">
+                    <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-2xl bg-[#0B1120] border border-white/15 p-2.5 shadow-2xl z-50 animate-fade-in space-y-1.5 max-h-[85vh] overflow-y-auto">
                       <div className="px-3 py-1.5 text-[11px] font-black text-gray-400 uppercase tracking-wider border-b border-white/10 flex items-center justify-between">
-                        <span>Menu &amp; Options</span>
-                        <span className="text-yellow-400">⋮</span>
+                        <span>Menu &amp; Settings</span>
+                        <span className="text-yellow-400 text-sm font-black">⋮</span>
                       </div>
 
                       {/* Sound Option Toggle */}
                       <button
                         type="button"
+                        id="menu-sound-toggle-btn"
                         onClick={() => {
                           handleToggleSound();
                         }}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold hover:bg-white/5 transition text-left cursor-pointer group"
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 transition text-left cursor-pointer group"
                       >
                         <div className="flex items-center gap-2.5 text-gray-200">
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                             soundEnabledState ? "bg-yellow-400/20 text-yellow-400" : "bg-white/10 text-gray-400"
                           }`}>
                             {soundEnabledState ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                           </div>
                           <div>
-                            <span className="block text-white">Sound Effects</span>
-                            <span className="text-[10px] text-gray-400 font-normal">गेम की आवाज़</span>
+                            <span className="block text-white font-bold">Sound Effects</span>
+                            <span className="text-[10px] text-gray-400 font-normal">गेम की आवाज़ (Audio SFX)</span>
                           </div>
                         </div>
                         <span
-                          className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase transition ${
+                          className={`text-[10px] px-2.5 py-1 rounded-full font-black uppercase transition ${
                             soundEnabledState
                               ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/20"
                               : "bg-white/10 text-gray-400"
@@ -1171,64 +1195,133 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
                         </span>
                       </button>
 
-                      {/* Rules & Multipliers */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSection("game");
-                          setThreeDotOpen(false);
-                          playClickSound();
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/5 transition text-gray-200 text-left cursor-pointer"
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-white/5 text-yellow-400 flex items-center justify-center">
-                          📜
-                        </div>
-                        <div>
-                          <span className="block text-white">Game Rules</span>
-                          <span className="text-[10px] text-gray-400 font-normal">2X Head/Tail &amp; 10X Tie</span>
-                        </div>
-                      </button>
+                      {/* Quick Navigation Section */}
+                      <div className="pt-1 space-y-0.5">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-3 block">
+                          Navigation
+                        </span>
 
-                      {/* Transaction History */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSection("history");
-                          setThreeDotOpen(false);
-                          playClickSound();
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/5 transition text-gray-200 text-left cursor-pointer"
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-white/5 text-cyan-400 flex items-center justify-center">
-                          📊
-                        </div>
-                        <div>
-                          <span className="block text-white">Game History</span>
-                          <span className="text-[10px] text-gray-400 font-normal">Pichhle Rounds ka Record</span>
-                        </div>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSection("home");
+                            setThreeDotOpen(false);
+                            playClickSound();
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            section === "home" ? "bg-yellow-400 text-black shadow-sm" : "text-gray-200 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-sm">🏠</span>
+                            <span>Dashboard (Home)</span>
+                          </div>
+                          {section === "home" && <span>✓</span>}
+                        </button>
 
-                      {/* Support Link */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSection("referral");
-                          setThreeDotOpen(false);
-                          playClickSound();
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/5 transition text-gray-200 text-left cursor-pointer"
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-white/5 text-emerald-400 flex items-center justify-center">
-                          👥
-                        </div>
-                        <div>
-                          <span className="block text-white">Refer &amp; Earn</span>
-                          <span className="text-[10px] text-gray-400 font-normal">Dosto ko refer karke kamayein</span>
-                        </div>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSection("game");
+                            setThreeDotOpen(false);
+                            playClickSound();
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            section === "game" ? "bg-yellow-400 text-black shadow-sm" : "text-gray-200 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-sm">🪙</span>
+                            <span>Play CoinFlip (2X)</span>
+                          </div>
+                          {section === "game" && <span>✓</span>}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSection("spin");
+                            setThreeDotOpen(false);
+                            playClickSound();
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            section === "spin" ? "bg-yellow-400 text-black shadow-sm" : "text-gray-200 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-sm">🎁</span>
+                            <span>Daily Lucky Spin</span>
+                          </div>
+                          {section === "spin" && <span>✓</span>}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSection("referral");
+                            setThreeDotOpen(false);
+                            playClickSound();
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            section === "referral" ? "bg-yellow-400 text-black shadow-sm" : "text-gray-200 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-sm">👥</span>
+                            <span>Refer &amp; Earn (5%)</span>
+                          </div>
+                          {section === "referral" && <span>✓</span>}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSection("wallet");
+                            setThreeDotOpen(false);
+                            playClickSound();
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            section === "wallet" ? "bg-yellow-400 text-black shadow-sm" : "text-gray-200 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-sm">💳</span>
+                            <span>Wallet &amp; Transactions</span>
+                          </div>
+                          {section === "wallet" && <span>✓</span>}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSection("history");
+                            setThreeDotOpen(false);
+                            playClickSound();
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            section === "history" ? "bg-yellow-400 text-black shadow-sm" : "text-gray-200 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-sm">📊</span>
+                            <span>Game History</span>
+                          </div>
+                          {section === "history" && <span>✓</span>}
+                        </button>
+                      </div>
 
                       <div className="my-1 border-t border-white/10" />
+
+                      {/* Admin link if user is admin */}
+                      {user?.role === "admin" && (
+                        <a
+                          href="/admin/dashboard"
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 transition"
+                        >
+                          <span className="text-sm">⚙️</span>
+                          <span>Admin Management Panel</span>
+                        </a>
+                      )}
 
                       {/* Profile View */}
                       <button
@@ -1238,15 +1331,15 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
                           setThreeDotOpen(false);
                           playClickSound();
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold hover:bg-white/5 transition text-gray-200 text-left cursor-pointer"
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          section === "profile" ? "bg-yellow-400 text-black shadow-sm" : "text-gray-200 hover:bg-white/5"
+                        }`}
                       >
-                        <div className="w-7 h-7 rounded-lg bg-white/5 text-purple-400 flex items-center justify-center">
-                          👤
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-sm">👤</span>
+                          <span>Profile ({user?.name || "Player"})</span>
                         </div>
-                        <div>
-                          <span className="block text-white">Profile: {user?.name || "Player"}</span>
-                          <span className="text-[10px] text-gray-400 font-normal">Account settings</span>
-                        </div>
+                        {section === "profile" && <span>✓</span>}
                       </button>
 
                       {/* Logout */}
@@ -1256,25 +1349,15 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
                           setThreeDotOpen(false);
                           logout();
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 transition text-left cursor-pointer"
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/15 transition text-left cursor-pointer border border-rose-500/20"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center">
-                          🚪
-                        </div>
-                        <span>{user?.isDemo ? "Exit Demo" : "Logout Account"}</span>
+                        <span className="text-sm">🚪</span>
+                        <span>{user?.isDemo ? "Exit Demo ✕" : "Logout Account"}</span>
                       </button>
                     </div>
                   </>
                 )}
               </div>
-
-              <button
-                onClick={() => setMobileNav((v) => !v)}
-                className="lg:hidden rounded-xl border border-white/10 px-2.5 py-1.5 text-xs font-bold text-gray-300 hover:bg-white/5 cursor-pointer"
-                title="Toggle Menu"
-              >
-                {mobileNav ? "✕" : "☰"}
-              </button>
 
               <button
                 onClick={logout}
@@ -1284,67 +1367,6 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
               </button>
             </div>
           </div>
-
-          {mobileNav && (
-            <div className="lg:hidden border-t border-white/10 p-3 space-y-1 bg-[#0B1120] animate-fade-in shadow-2xl">
-              {/* Sound Option inside Mobile Nav */}
-              <button
-                type="button"
-                onClick={() => {
-                  handleToggleSound();
-                }}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm bg-white/5 hover:bg-white/10 transition text-gray-200 mb-1 cursor-pointer"
-              >
-                <span className="flex items-center gap-2">
-                  {soundEnabledState ? <Volume2 className="w-4 h-4 text-yellow-400" /> : <VolumeX className="w-4 h-4 text-gray-500" />}
-                  <span>Game Sound (गेम आवाज़)</span>
-                </span>
-                <span
-                  className={`text-xs px-2.5 py-0.5 rounded-full font-black ${
-                    soundEnabledState
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                      : "bg-white/10 text-gray-400"
-                  }`}
-                >
-                  {soundEnabledState ? "SOUND ON 🔊" : "MUTED 🔇"}
-                </span>
-              </button>
-
-              {nav.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setSection(item.id);
-                    setMobileNav(false);
-                    playClickSound();
-                  }}
-                  className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm transition flex items-center justify-between ${
-                    section === item.id
-                      ? "bg-yellow-400 text-black shadow-md"
-                      : "text-gray-300 hover:bg-white/5"
-                  }`}
-                >
-                  <span>{item.label}</span>
-                  {section === item.id && <span>➔</span>}
-                </button>
-              ))}
-              {user?.role === "admin" && (
-                <a
-                  href="/admin/dashboard"
-                  className="w-full text-left px-4 py-3 rounded-xl font-bold text-sm bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-between"
-                >
-                  <span>⚙️ Admin Management Panel</span>
-                  <span>➔</span>
-                </a>
-              )}
-              <button
-                onClick={logout}
-                className="w-full text-left px-4 py-3 rounded-xl text-red-400 font-bold text-sm hover:bg-red-500/10 transition flex items-center justify-between"
-              >
-                <span>{user?.isDemo ? "Exit Demo ✕" : "Logout Account 🚪"}</span>
-              </button>
-            </div>
-          )}
         </header>
 
         {/* Main Content Area */}
@@ -2551,13 +2573,11 @@ function GameView({ user, refreshUser, setSection }) {
               </div>
             )}
 
-            {/* Result Display Box */}
-            {result && phase === "RESULT" && (
+            {/* Result Display Box - ONLY shown for user's bet (WIN / LOSS) - spectator round complete block is hidden */}
+            {result && phase === "RESULT" && !result.spectator && (
               <div
                 className={`my-3 rounded-2xl p-4 sm:p-5 border animate-fade-in ${
-                  result.spectator
-                    ? "bg-blue-500/10 border-blue-500/30"
-                    : result.won
+                  result.won
                     ? "bg-green-500/15 border-green-500/40 shadow-xl shadow-green-500/15"
                     : result.isTieResult
                     ? "bg-purple-500/20 border-purple-500/50 shadow-xl shadow-purple-500/20"
@@ -2568,60 +2588,54 @@ function GameView({ user, refreshUser, setSection }) {
                   <div>
                     <p
                       className={`text-xl sm:text-2xl font-black ${
-                        result.spectator
-                          ? "text-blue-300"
-                          : result.won
+                        result.won
                           ? "text-green-400"
                           : result.isTieResult
                           ? "text-purple-300"
                           : "text-red-400"
                       }`}
                     >
-                      {result.spectator
-                        ? `ROUND COMPLETED • RESULT: ${result.result}`
-                        : result.won
+                      {result.won
                         ? result.prediction === "TIE"
                           ? "🔥 MEGA TIE JACKPOT WIN!"
                           : "🎉 YOU WON!"
                         : result.isTieResult
-                        ? "⚖️ COIN LANDED ON EDGE (TIE)!"
+                        ? "⚖️ TIE RESULT (ROUND TIED) - YOU LOST"
                         : "💔 YOU LOST THIS ROUND"}
                     </p>
-                    {result.isTieResult && !result.won && !result.spectator && (
+                    {result.isTieResult && !result.won && (
                       <p className="text-xs text-purple-200 mt-0.5">
-                        Round tied! Head aur Tail dono har gaye.
+                        Round tied! Coin landed on edge (Head aur Tail dono har gaye).
                       </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs px-3 py-1.5 rounded-xl bg-white/15 font-black text-white">
-                      {result.result}
+                      OUTCOME: {result.result}
                     </span>
                   </div>
                 </div>
 
-                {!result.spectator && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs">
-                    <div className="bg-black/30 p-2 rounded-xl">
-                      <span className="text-gray-400 block">Prediction</span>
-                      <span className="text-white font-bold">{result.prediction}</span>
-                    </div>
-                    <div className="bg-black/30 p-2 rounded-xl">
-                      <span className="text-gray-400 block">Outcome</span>
-                      <span className="text-yellow-300 font-bold">{result.result}</span>
-                    </div>
-                    <div className="bg-black/30 p-2 rounded-xl">
-                      <span className="text-gray-400 block">Bet Amount</span>
-                      <span className="text-white font-bold">{RUPEE}{result.entryFee.toFixed(2)}</span>
-                    </div>
-                    <div className="bg-black/30 p-2 rounded-xl">
-                      <span className="text-gray-400 block">Payout</span>
-                      <span className={`font-black ${result.won ? "text-green-400" : "text-white"}`}>
-                        {RUPEE}{result.winAmount.toFixed(2)} {result.won && `(${result.multiplier}X)`}
-                      </span>
-                    </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs">
+                  <div className="bg-black/30 p-2 rounded-xl">
+                    <span className="text-gray-400 block">Your Bet</span>
+                    <span className="text-white font-bold">{result.prediction}</span>
                   </div>
-                )}
+                  <div className="bg-black/30 p-2 rounded-xl">
+                    <span className="text-gray-400 block">Outcome</span>
+                    <span className="text-yellow-300 font-bold">{result.result}</span>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-xl">
+                    <span className="text-gray-400 block">Bet Amount</span>
+                    <span className="text-white font-bold">{RUPEE}{result.entryFee.toFixed(2)}</span>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-xl">
+                    <span className="text-gray-400 block">Payout</span>
+                    <span className={`font-black ${result.won ? "text-green-400" : "text-white"}`}>
+                      {RUPEE}{result.winAmount.toFixed(2)} {result.won && `(${result.multiplier}X)`}
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -3006,6 +3020,73 @@ function GameView({ user, refreshUser, setSection }) {
           </div>
         </section>
       </div>
+
+      {/* TIMELINE ROAD - RECENT ROUNDS (पिछली 10 बाज़ियों का परिणाम) */}
+      <section className="rounded-3xl border border-white/10 bg-[#111827] p-5 sm:p-6 shadow-2xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div>
+            <h2 className="text-base sm:text-lg font-black flex items-center gap-2 text-white">
+              <TrendingUp className="w-5 h-5 text-yellow-400" />
+              <span>Timeline Road (पिछली 10 बाज़ियों का परिणाम)</span>
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Live outcomes: HEAD (चित 👑), TAIL (पट {RUPEE}), or TIE (टाई ⚖️)
+            </p>
+          </div>
+
+          {/* Quick Win Rates Summary Chips */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/30 text-amber-300 font-black flex items-center gap-1">
+              👑 Head: {trendStats.headsPercent}%
+            </span>
+            <span className="text-[11px] px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 font-black flex items-center gap-1">
+              {RUPEE} Tail: {trendStats.tailsPercent}%
+            </span>
+            <span className="text-[11px] px-2.5 py-1 rounded-xl bg-purple-500/20 border border-purple-400/30 text-purple-300 font-black flex items-center gap-1">
+              ⚖️ Tie: {trendStats.tiesPercent}%
+            </span>
+          </div>
+        </div>
+
+        {/* Horizontal Timeline Road (Recent ➔ Older) */}
+        <div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+            {historyRoadmap.slice(0, 10).map((outcome, idx) => {
+              const isLatest = idx === 0;
+              const isHead = outcome === "HEAD";
+              const isTail = outcome === "TAIL";
+
+              return (
+                <div
+                  key={idx}
+                  className={`flex flex-col items-center justify-center min-w-[66px] sm:min-w-[76px] p-3 rounded-2xl border transition-all ${
+                    isLatest ? "ring-2 ring-yellow-400/80 scale-105 shadow-lg shadow-yellow-400/10" : ""
+                  } ${
+                    isHead
+                      ? "bg-gradient-to-b from-amber-500/20 to-yellow-500/10 border-amber-400/40 text-amber-300"
+                      : isTail
+                      ? "bg-gradient-to-b from-emerald-500/20 to-teal-500/10 border-emerald-400/40 text-emerald-300"
+                      : "bg-gradient-to-b from-purple-500/25 to-pink-500/15 border-purple-400/50 text-purple-300"
+                  }`}
+                >
+                  <span className="text-[9px] font-mono text-gray-400 font-bold mb-1">
+                    {isLatest ? "LATEST" : `#${idx + 1}`}
+                  </span>
+                  <span className="text-xl sm:text-2xl my-0.5">
+                    {isHead ? "👑" : isTail ? RUPEE : "⚖️"}
+                  </span>
+                  <span className="text-xs font-black tracking-tight">
+                    {outcome}
+                  </span>
+                  <span className="text-[9px] font-semibold opacity-75">
+                    {isHead ? "चित (2X)" : isTail ? "पट (2X)" : "टाई (10X)"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

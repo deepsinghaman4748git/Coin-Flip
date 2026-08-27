@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { authFetch } from "../../lib/clientAuth";
+import { authFetch, safeJson } from "../../lib/clientAuth";
 
 const RUPEE = "₹";
 
@@ -18,10 +18,10 @@ export default function AdminGamesPage() {
       setLoading(true);
       setError("");
       const response = await authFetch("/api/admin/games", { cache: "no-store" });
-      const data = await response.json();
+      const data = await safeJson(response);
 
-      if (!response.ok || !data.success) {
-        setError(data.message || "Unable to load games");
+      if (!response.ok || !data?.success) {
+        setError(data?.message || "Unable to load games");
         return;
       }
 
@@ -266,12 +266,12 @@ export default function AdminGamesPage() {
                   </td>
                 </tr>
               ) : (
-                filteredGames.map((game) => {
+                filteredGames.map((game, idx) => {
                   const isWon = game.status === "won";
                   const isHighRoller = Number(game.entryFee || 0) >= 500;
 
                   return (
-                    <tr key={game._id} className="hover:bg-slate-800/40 transition">
+                    <tr key={game._id || game.id || `game-${idx}-${game.createdAt || ""}`} className="hover:bg-slate-800/40 transition">
                       {/* Player */}
                       <td className="py-4 px-4">
                         <div className="font-bold text-white text-sm">{game.user?.name || "Anonymous Player"}</div>

@@ -48,14 +48,14 @@ body {
   0% {
     transform: translateY(0) rotateY(0deg) scale(1);
   }
-  25% {
-    transform: translateY(-35px) rotateY(450deg) scale(1.08);
+  20% {
+    transform: translateY(-40px) rotateY(360deg) scale(1.08);
   }
   50% {
-    transform: translateY(-55px) rotateY(900deg) scale(1.12);
+    transform: translateY(-65px) rotateY(900deg) scale(1.15);
   }
-  75% {
-    transform: translateY(-25px) rotateY(1350deg) scale(1.06);
+  80% {
+    transform: translateY(-25px) rotateY(1440deg) scale(1.05);
   }
   100% {
     transform: translateY(0) rotateY(1800deg) scale(1);
@@ -68,18 +68,22 @@ body {
     opacity: 0.6;
   }
   50% {
-    transform: scale(0.55);
-    opacity: 0.15;
+    transform: scale(0.5);
+    opacity: 0.12;
   }
 }
 
 .animate-coin-spin {
-  animation: coin-spin-3d 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: coin-spin-3d 0.95s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
   transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .animate-coin-shadow {
-  animation: coin-shadow 1.1s ease-in-out infinite;
+  animation: coin-shadow 0.95s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 @keyframes wind-gust {

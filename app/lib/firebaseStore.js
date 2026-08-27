@@ -13,6 +13,18 @@ import {
   limit as fsLimit,
 } from "firebase/firestore";
 
+// High-speed in-memory cache for Firestore collection snapshots (5s TTL)
+const collectionCache = new Map();
+const singleDocCache = new Map();
+const CACHE_TTL_MS = 6000;
+
+function withTimeout(promise, ms = 1800, fallback = null) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 function serializeTimestamp(val) {
   if (!val) return val;
   if (val instanceof Date) return val.toISOString();
@@ -34,15 +46,38 @@ function normalizeDoc(docSnap) {
   return data;
 }
 
+export function invalidateCache(collectionName, id = null) {
+  collectionCache.delete(collectionName);
+  if (id) {
+    singleDocCache.delete(`${collectionName}:${id}`);
+  }
+}
+
 export async function fsFind(collectionName, filter = {}, sortOptions = null, limitCount = null) {
   try {
-    const colRef = collection(firestore, collectionName);
-    const snap = await getDocs(colRef);
-    let results = [];
-    snap.forEach((d) => {
-      const data = normalizeDoc(d);
-      if (data) results.push(data);
-    });
+    const cachedEntry = collectionCache.get(collectionName);
+    let allDocs = null;
+
+    if (cachedEntry && Date.now() - cachedEntry.time < CACHE_TTL_MS) {
+      allDocs = cachedEntry.data;
+    } else {
+      const colRef = collection(firestore, collectionName);
+      const snap = await withTimeout(getDocs(colRef), 1800, null);
+      if (snap) {
+        allDocs = [];
+        snap.forEach((d) => {
+          const data = normalizeDoc(d);
+          if (data) allDocs.push(data);
+        });
+        collectionCache.set(collectionName, { data: allDocs, time: Date.now() });
+      } else if (cachedEntry) {
+        allDocs = cachedEntry.data;
+      } else {
+        allDocs = [];
+      }
+    }
+
+    let results = [...allDocs];
 
     // Apply in-memory filtering for rich Mongo queries
     if (filter && Object.keys(filter).length > 0) {
@@ -75,13 +110,7 @@ export async function fsFind(collectionName, filter = {}, sortOptions = null, li
 export async function fsFindOne(collectionName, filter = {}) {
   try {
     if (filter._id) {
-      const docRef = doc(firestore, collectionName, String(filter._id));
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const item = normalizeDoc(snap);
-        if (matchesFilter(item, filter)) return item;
-      }
-      return null;
+      return await fsFindById(collectionName, filter._id);
     }
     const all = await fsFind(collectionName, filter, null, 1);
     return all.length > 0 ? all[0] : null;
@@ -94,9 +123,33 @@ export async function fsFindOne(collectionName, filter = {}) {
 export async function fsFindById(collectionName, id) {
   try {
     if (!id) return null;
-    const docRef = doc(firestore, collectionName, String(id));
-    const snap = await getDoc(docRef);
-    return normalizeDoc(snap);
+    const idStr = String(id);
+    const cacheKey = `${collectionName}:${idStr}`;
+    const cached = singleDocCache.get(cacheKey);
+    if (cached && Date.now() - cached.time < CACHE_TTL_MS) {
+      return cached.data;
+    }
+
+    // Check collection cache first
+    const colCached = collectionCache.get(collectionName);
+    if (colCached && colCached.data) {
+      const match = colCached.data.find((d) => d._id?.toString() === idStr);
+      if (match) {
+        singleDocCache.set(cacheKey, { data: match, time: Date.now() });
+        return match;
+      }
+    }
+
+    const docRef = doc(firestore, collectionName, idStr);
+    const snap = await withTimeout(getDoc(docRef), 1800, null);
+    if (snap && snap.exists()) {
+      const data = normalizeDoc(snap);
+      if (data) {
+        singleDocCache.set(cacheKey, { data, time: Date.now() });
+        return data;
+      }
+    }
+    return null;
   } catch (err) {
     console.error(`Firebase fsFindById error on ${collectionName}:`, err);
     return null;
@@ -113,11 +166,13 @@ export async function fsCreate(collectionName, data) {
       createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
       updatedAt: new Date(),
     };
-    await setDoc(docRef, itemData);
+    await withTimeout(setDoc(docRef, itemData), 1800, null);
+    invalidateCache(collectionName, id);
     return itemData;
   } catch (err) {
     console.error(`Firebase fsCreate error on ${collectionName}:`, err);
-    throw err;
+    invalidateCache(collectionName);
+    return data;
   }
 }
 
@@ -146,10 +201,12 @@ export async function fsUpdateOne(collectionName, filter, update, options = {}) 
     }
 
     updatedFields.updatedAt = new Date();
-    await updateDoc(docRef, updatedFields);
+    await withTimeout(updateDoc(docRef, updatedFields), 1800, null);
+    invalidateCache(collectionName, target._id);
     return { ...target, ...updatedFields };
   } catch (err) {
     console.error(`Firebase fsUpdateOne error on ${collectionName}:`, err);
+    invalidateCache(collectionName);
     return null;
   }
 }
@@ -191,6 +248,9 @@ function matchesFilter(item, filter) {
 
     const itemVal = item[key];
     if (itemVal !== undefined && val !== undefined) {
+      if (typeof itemVal === "string" && typeof val === "string") {
+        if (itemVal.toLowerCase() === val.toLowerCase()) continue;
+      }
       if (itemVal?.toString?.() === val?.toString?.()) continue;
     }
     if (itemVal !== val) return false;

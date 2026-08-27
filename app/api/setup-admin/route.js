@@ -19,7 +19,7 @@ export async function POST(request) {
 
     await connectDB();
 
-    const email = "admin@CoinFlip.com";
+    const email = "admin@coinflip.com";
     const password = "admin123";
 
     let user = await User.findOne({ email });

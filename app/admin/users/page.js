@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { authFetch } from "../../lib/clientAuth";
+import { authFetch, safeJson } from "../../lib/clientAuth";
 
 const RUPEE = "₹";
 
@@ -45,10 +45,10 @@ export default function AdminUsersPage() {
       setLoading(true);
       setError("");
       const response = await authFetch("/api/admin/users", { cache: "no-store" });
-      const data = await response.json();
+      const data = await safeJson(response);
 
-      if (!response.ok || !data.success) {
-        setError(data.message || "Unable to load users");
+      if (!response.ok || !data?.success) {
+        setError(data?.message || "Unable to load users");
         return;
       }
 
@@ -107,14 +107,14 @@ export default function AdminUsersPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeJson(res);
+      if (data?.success) {
         showToast(data.message || `✅ Wallet updated successfully!`);
         setAdjustModalOpen(false);
         setSelectedUser(null);
         await loadUsers();
       } else {
-        alert(data.message || "Failed to adjust balance");
+        alert(data?.message || "Failed to adjust balance");
       }
     } catch (e) {
       alert("Error adjusting user balance");
@@ -146,14 +146,14 @@ export default function AdminUsersPage() {
         }),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeJson(res);
+      if (data?.success) {
         showToast(data.message || "User status updated");
         setBanModalOpen(false);
         setSelectedUser(null);
         await loadUsers();
       } else {
-        alert(data.message || "Failed to update ban status");
+        alert(data?.message || "Failed to update ban status");
       }
     } catch (e) {
       alert("Error updating user status");
@@ -179,12 +179,12 @@ export default function AdminUsersPage() {
         }),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeJson(res);
+      if (data?.success) {
         showToast(`Role updated to ${newRole}`);
         await loadUsers();
       } else {
-        alert(data.message || "Failed to change role");
+        alert(data?.message || "Failed to change role");
       }
     } catch (e) {
       alert("Error changing user role");
@@ -218,14 +218,14 @@ export default function AdminUsersPage() {
         }),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeJson(res);
+      if (data?.success) {
         showToast(data.message || "Linked UPI updated");
         setUpiModalOpen(false);
         setSelectedUser(null);
         await loadUsers();
       } else {
-        alert(data.message || "Failed to update linked UPI");
+        alert(data?.message || "Failed to update linked UPI");
       }
     } catch (e) {
       alert("Error updating linked UPI");
@@ -264,14 +264,14 @@ export default function AdminUsersPage() {
         }),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeJson(res);
+      if (data?.success) {
         showToast(`🔑 Password updated for ${selectedUser.name}! New Password: ${pass}`);
         setPasswordModalOpen(false);
         setSelectedUser(null);
         await loadUsers();
       } else {
-        alert(data.message || "Failed to reset password");
+        alert(data?.message || "Failed to reset password");
       }
     } catch (e) {
       alert("Error resetting password");
@@ -527,8 +527,8 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user._id} className="hover:bg-slate-800/40 transition">
+                filteredUsers.map((user, idx) => (
+                  <tr key={user._id || user.id || `user-${idx}-${user.email || ""}`} className="hover:bg-slate-800/40 transition">
                     {/* User Profile */}
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">

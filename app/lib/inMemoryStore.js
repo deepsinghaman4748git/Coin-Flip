@@ -35,7 +35,7 @@ const userHashed = bcrypt.hashSync("user123", 10);
 const defaultAdmin = {
   _id: "user_admin_001",
   name: "Super Admin",
-  email: "admin@example.com",
+  email: "admin@coinflip.com",
   password: adminHashed,
   walletBalance: 25000,
   role: "admin",

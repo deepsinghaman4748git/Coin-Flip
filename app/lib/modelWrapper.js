@@ -37,9 +37,14 @@ function matchesQuery(doc, query) {
       continue;
     }
 
-    const docVal = doc[key];
-    if (docVal && val && docVal.toString && val.toString) {
-      if (docVal.toString() === val.toString()) continue;
+    const docVal = (key === "_id" || key === "id") ? (doc._id || doc.id) : doc[key];
+    if (docVal !== undefined && val !== undefined) {
+      if (typeof docVal === "string" && typeof val === "string") {
+        if (docVal.toLowerCase() === val.toLowerCase()) continue;
+      }
+      if (docVal && val && docVal.toString && val.toString) {
+        if (docVal.toString() === val.toString()) continue;
+      }
     }
     if (docVal !== val) return false;
   }
@@ -48,7 +53,12 @@ function matchesQuery(doc, query) {
 
 function cloneDoc(doc, collectionKey) {
   if (!doc) return null;
-  const cloned = { ...doc };
+  const rawData = doc._doc ? doc._doc : (typeof doc.toObject === "function" ? doc.toObject() : doc);
+  const cloned = { ...rawData };
+
+  if (cloned._id && !cloned.id) {
+    cloned.id = String(cloned._id);
+  }
 
   cloned.toObject = function () {
     const obj = { ...this };
@@ -86,11 +96,59 @@ function cloneDoc(doc, collectionKey) {
   return cloned;
 }
 
+const userCache = new Map();
+
+async function resolvePopulatedDoc(doc) {
+  if (!doc) return doc;
+  // If doc has a 'user' field that is an ID string or number
+  if (doc.user && (typeof doc.user === "string" || typeof doc.user === "number")) {
+    const userIdStr = String(doc.user);
+    if (userCache.has(userIdStr)) {
+      const cachedU = userCache.get(userIdStr);
+      doc.user = { ...cachedU };
+      return doc;
+    }
+
+    let u = inMemoryDb.users?.find((x) => x._id?.toString() === userIdStr);
+    if (!u) {
+      try {
+        u = await fsFindById("users", userIdStr);
+      } catch (err) {
+        // silent
+      }
+    }
+    if (u) {
+      const populatedUser = {
+        _id: u._id,
+        name: u.name || "Player",
+        email: u.email || "",
+        phone: u.phone || "",
+        walletBalance: Number(u.walletBalance || 0),
+        referralCode: u.referralCode || "",
+        isBanned: Boolean(u.isBanned),
+      };
+      userCache.set(userIdStr, populatedUser);
+      doc.user = { ...populatedUser };
+    } else {
+      const fallbackUser = {
+        _id: userIdStr,
+        name: `User ${userIdStr.slice(-4)}`,
+        email: "player@coinflip",
+        walletBalance: 0,
+      };
+      userCache.set(userIdStr, fallbackUser);
+      doc.user = { ...fallbackUser };
+    }
+  }
+  return doc;
+}
+
 function createQueryChain(fetchAsync, collectionKey) {
   let selectFields = null;
   let sortField = null;
   let limitCount = null;
   let skipCount = null;
+  let shouldPopulate = false;
 
   const chain = {
     select(fields) {
@@ -109,7 +167,8 @@ function createQueryChain(fetchAsync, collectionKey) {
       skipCount = n;
       return chain;
     },
-    populate() {
+    populate(field) {
+      shouldPopulate = true;
       return chain;
     },
     lean() {
@@ -136,9 +195,18 @@ function createQueryChain(fetchAsync, collectionKey) {
           }
           if (skipCount) list = list.slice(skipCount);
           if (limitCount) list = list.slice(0, limitCount);
-          return resolve(list.map((d) => cloneDoc(d, collectionKey)));
+          
+          const clonedList = list.map((d) => cloneDoc(d, collectionKey));
+          if (shouldPopulate) {
+            await Promise.all(clonedList.map(resolvePopulatedDoc));
+          }
+          return resolve(clonedList);
         } else {
-          return resolve(cloneDoc(results, collectionKey));
+          const single = cloneDoc(results, collectionKey);
+          if (single && shouldPopulate) {
+            await resolvePopulatedDoc(single);
+          }
+          return resolve(single);
         }
       } catch (err) {
         if (reject) return reject(err);
@@ -165,19 +233,19 @@ export function getModel(modelName, MongooseModel) {
   const firestoreMethods = {
     find(query = {}) {
       return createQueryChain(async () => {
-        if (mongoose.connection.readyState === 1) {
-          try {
-            if (!query?._id || (mongoose.isValidObjectId(query._id) && String(query._id).length === 24)) {
-              const mDocs = await MongooseModel.find(query);
-              if (mDocs && mDocs.length > 0) return mDocs;
-            }
-          } catch (mErr) {
-            console.warn("Mongoose find error:", mErr.message);
-          }
-        }
         try {
           const docs = await fsFind(collectionKey, query);
-          if (docs && docs.length > 0) return docs;
+          if (docs && docs.length > 0) {
+            // Seed to inMemoryDb
+            if (inMemoryDb[collectionKey]) {
+              for (const d of docs) {
+                if (!inMemoryDb[collectionKey].some((x) => x._id?.toString() === d._id?.toString())) {
+                  inMemoryDb[collectionKey].push(d);
+                }
+              }
+            }
+            return docs;
+          }
         } catch (err) {
           console.warn("fsFind error:", err);
         }
@@ -188,63 +256,62 @@ export function getModel(modelName, MongooseModel) {
 
     findOne(query = {}) {
       return createQueryChain(async () => {
-        if (mongoose.connection.readyState === 1) {
-          try {
-            if (!query?._id || (mongoose.isValidObjectId(query._id) && String(query._id).length === 24)) {
-              const mDoc = await MongooseModel.findOne(query);
-              if (mDoc) return mDoc;
-            }
-          } catch (mErr) {
-            console.warn("Mongoose findOne error:", mErr.message);
-          }
-        }
+        // Fast-path: Check in-memory DB first
+        const coll = inMemoryDb[collectionKey] || [];
+        const memDoc = coll.find((doc) => matchesQuery(doc, query));
+        if (memDoc) return memDoc;
+
         try {
           const doc = await fsFindOne(collectionKey, query);
-          if (doc) return doc;
+          if (doc) {
+            if (inMemoryDb[collectionKey] && !inMemoryDb[collectionKey].some((x) => x._id?.toString() === doc._id?.toString())) {
+              inMemoryDb[collectionKey].unshift(doc);
+            }
+            return doc;
+          }
         } catch (err) {
           console.warn("fsFindOne error:", err);
         }
-        const coll = inMemoryDb[collectionKey] || [];
-        return coll.find((doc) => matchesQuery(doc, query)) || null;
+        return null;
       }, collectionKey);
     },
 
     findById(id) {
       const idStr = id?.toString?.() || String(id || "");
-      const isValidOid = mongoose.isValidObjectId(idStr) && idStr.length === 24 && /^[0-9a-fA-F]{24}$/.test(idStr);
-
-      if (mongoose.connection.readyState === 1 && isValidOid) {
-        return createQueryChain(async () => {
-          try {
-            const mDoc = await MongooseModel.findById(idStr);
-            if (mDoc) return mDoc;
-          } catch (mErr) {
-            console.warn("Mongoose findById error:", mErr.message);
-          }
-          return firestoreMethods.findById(idStr);
-        }, collectionKey);
-      }
+      if (!idStr) return createQueryChain(async () => null, collectionKey);
 
       return createQueryChain(async () => {
+        // Fast-path: check in-memory store
+        const coll = inMemoryDb[collectionKey] || [];
+        const memDoc = coll.find((doc) => doc._id?.toString() === idStr || doc.id?.toString() === idStr);
+        if (memDoc) return memDoc;
+
         try {
           const doc = await fsFindById(collectionKey, idStr);
-          if (doc) return doc;
+          if (doc) {
+            if (inMemoryDb[collectionKey] && !inMemoryDb[collectionKey].some((x) => x._id?.toString() === doc._id?.toString())) {
+              inMemoryDb[collectionKey].unshift(doc);
+            }
+            return doc;
+          }
         } catch (err) {
           console.warn("fsFindById error:", err);
         }
-        const coll = inMemoryDb[collectionKey] || [];
-        return coll.find((doc) => doc._id?.toString() === idStr) || null;
+        return null;
       }, collectionKey);
     },
 
     async countDocuments(query = {}) {
+      const coll = inMemoryDb[collectionKey] || [];
+      const memCount = coll.filter((doc) => matchesQuery(doc, query)).length;
+      if (memCount > 0) return memCount;
+
       try {
         const docs = await fsFind(collectionKey, query);
         if (docs) return docs.length;
       } catch (err) {
         console.warn("countDocuments fs error:", err);
       }
-      const coll = inMemoryDb[collectionKey] || [];
       return coll.filter((doc) => matchesQuery(doc, query)).length;
     },
 
@@ -334,8 +401,19 @@ export function getModel(modelName, MongooseModel) {
     },
 
     async aggregate(pipeline = []) {
-      const docs = await firestoreMethods.find({});
-      let filtered = [...docs];
+      const coll = inMemoryDb[collectionKey] || [];
+      let filtered = [...coll];
+      if (filtered.length === 0) {
+        try {
+          const docs = await fsFind(collectionKey);
+          if (docs && docs.length > 0) {
+            filtered = [...docs];
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
       for (const stage of pipeline) {
         if (stage.$match) {
           filtered = filtered.filter((d) => matchesQuery(d, stage.$match));

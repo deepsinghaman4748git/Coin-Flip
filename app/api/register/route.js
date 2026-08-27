@@ -83,11 +83,13 @@ export async function POST(request) {
       firstDepositDone: false,
     });
 
+    const userIdStr = String(user._id || user.id || "");
+
     const token = jwt.sign(
       {
-        userId: user._id.toString(),
+        userId: userIdStr,
         email: user.email,
-        role: user.role,
+        role: user.role || "user",
       },
       process.env.JWT_SECRET || "coinflip_jwt_super_secret_key_2026",
       { expiresIn: "7d" }
@@ -99,12 +101,13 @@ export async function POST(request) {
         message: "Registration successful",
         token: token,
         user: {
-          id: user._id,
+          id: userIdStr,
+          _id: userIdStr,
           name: user.name,
           email: user.email,
           phone: user.phone || "",
-          walletBalance: user.walletBalance,
-          role: user.role,
+          walletBalance: user.walletBalance ?? 0,
+          role: user.role || "user",
         },
       },
       { status: 201 }

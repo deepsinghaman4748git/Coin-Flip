@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { authFetch } from "../../lib/clientAuth";
+import { useEffect, useState, useRef } from "react";
+import { authFetch, safeJson } from "../../lib/clientAuth";
 
 const defaultSettings = {
   CoinFlipEnabled: true,
@@ -195,15 +195,15 @@ export default function AdminSettingsPage() {
       setErrorMessage("");
 
       const response = await authFetch("/api/admin/settings", { cache: "no-store" });
-      const data = await response.json();
+      const data = await safeJson(response);
 
-      if (data.success && data.settings) {
+      if (data?.success && data?.settings) {
         setSettings({
           ...defaultSettings,
           ...data.settings,
         });
       } else {
-        setErrorMessage(data.message || "Failed to load current settings");
+        setErrorMessage(data?.message || "Failed to load current settings");
       }
     } catch (err) {
       console.error("Settings error:", err);
@@ -217,8 +217,8 @@ export default function AdminSettingsPage() {
     try {
       setSecLoading(true);
       const res = await authFetch("/api/admin/security", { cache: "no-store" });
-      const data = await res.json();
-      if (data.success && data.security) {
+      const data = await safeJson(res);
+      if (data?.success && data?.security) {
         setSecurityProfile(data.security);
       }
     } catch (err) {
@@ -271,12 +271,12 @@ export default function AdminSettingsPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
-      if (data.success) {
+      if (data?.success) {
         showToast("💾 All platform settings saved & live in real-time!");
       } else {
-        setErrorMessage(data.message || "Failed to save settings");
+        setErrorMessage(data?.message || "Failed to save settings");
       }
     } catch (err) {
       console.error("Save settings error:", err);
@@ -314,9 +314,9 @@ export default function AdminSettingsPage() {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setPwdErr(data.message || "Failed to update admin password");
+      const data = await safeJson(res);
+      if (!res.ok || !data?.success) {
+        setPwdErr(data?.message || "Failed to update admin password");
         return;
       }
 
@@ -361,9 +361,9 @@ export default function AdminSettingsPage() {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setPinErr(data.message || "Failed to set 2FA PIN");
+      const data = await safeJson(res);
+      if (!res.ok || !data?.success) {
+        setPinErr(data?.message || "Failed to set 2FA PIN");
         return;
       }
 
@@ -395,9 +395,9 @@ export default function AdminSettingsPage() {
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setDisableErr(data.message || "Failed to disable 2FA");
+      const data = await safeJson(res);
+      if (!res.ok || !data?.success) {
+        setDisableErr(data?.message || "Failed to disable 2FA");
         return;
       }
 
@@ -421,37 +421,60 @@ export default function AdminSettingsPage() {
     { id: "announcements", name: "Broadcast & Support", icon: "📢" },
   ];
 
+  const tabsContainerRef = useRef(null);
+  const activeTabIndex = tabs.findIndex((t) => t.id === activeTab);
+
+  function scrollTabs(direction) {
+    if (!tabsContainerRef.current) return;
+    const distance = direction === "left" ? -240 : 240;
+    tabsContainerRef.current.scrollBy({ left: distance, behavior: "smooth" });
+  }
+
+  function goToTab(index) {
+    if (index >= 0 && index < tabs.length) {
+      const nextTab = tabs[index];
+      setActiveTab(nextTab.id);
+      // Auto-scroll button into view
+      if (tabsContainerRef.current) {
+        const btn = tabsContainerRef.current.children[index];
+        if (btn) {
+          btn.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+        }
+      }
+    }
+  }
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
+    <div className="p-3 sm:p-6 lg:p-8 space-y-5 max-w-7xl mx-auto w-full pb-28 md:pb-12">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl bg-slate-900 text-white border border-yellow-500/50 shadow-2xl shadow-yellow-500/20 text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
+        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 px-4 py-3 rounded-xl bg-slate-900 text-white border border-yellow-500/50 shadow-2xl shadow-yellow-500/20 text-xs sm:text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 max-w-[90vw]">
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900/60 p-6 rounded-2xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-900/80 p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-lg">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-wider bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+            <span className="px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-black uppercase tracking-wider bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
               Platform Configuration
             </span>
-            <span className="text-xs text-slate-400">Instant Global Sync</span>
+            <span className="text-[11px] sm:text-xs text-slate-400">Instant Global Sync</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight">
             System &amp; Security Settings
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Tune payout multipliers, deposit UPI gateways, fraud security checks, admin password &amp; 2FA PIN protection.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={loadSettings}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition disabled:opacity-50"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition disabled:opacity-50 min-h-[44px]"
           >
             <span className={loading ? "animate-spin" : ""}>↻</span>
             <span>Reset / Reload</span>
@@ -461,10 +484,10 @@ export default function AdminSettingsPage() {
             <button
               onClick={handleSave}
               disabled={saving || loading}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black text-xs transition shadow-lg shadow-yellow-500/20 disabled:opacity-50"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black text-xs transition shadow-lg shadow-yellow-500/20 disabled:opacity-50 min-h-[44px]"
             >
               <span>💾</span>
-              <span>{saving ? "Saving Changes..." : "Save All Settings"}</span>
+              <span>{saving ? "Saving..." : "Save All Settings"}</span>
             </button>
           )}
         </div>
@@ -472,32 +495,107 @@ export default function AdminSettingsPage() {
 
       {/* ERROR ALERT */}
       {errorMessage && (
-        <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 text-sm font-semibold flex items-center justify-between">
+        <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 text-xs sm:text-sm font-semibold flex items-center justify-between">
           <span>⚠️ {errorMessage}</span>
           <button onClick={() => setErrorMessage("")} className="text-xs underline">Dismiss</button>
         </div>
       )}
 
-      {/* TAB SELECTOR */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-800 scrollbar-none">
-        {tabs.map((tab) => (
+      {/* MOBILE QUICK DROPDOWN SELECTOR (Shown on mobile for 1-tap switching) */}
+      <div className="sm:hidden bg-slate-900/90 p-3 rounded-2xl border border-slate-800 space-y-2 shadow-md">
+        <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+          <span className="flex items-center gap-1.5 text-yellow-400">
+            <span>⚙️</span> Choose Settings Category:
+          </span>
+          <span className="text-[10px] text-slate-500 font-mono">
+            {activeTabIndex + 1} of {tabs.length}
+          </span>
+        </div>
+        <select
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value)}
+          className="w-full bg-slate-950 text-white font-bold text-xs p-3 rounded-xl border border-yellow-500/40 outline-none focus:ring-2 focus:ring-yellow-400"
+        >
+          {tabs.map((tab, idx) => (
+            <option key={tab.id} value={tab.id}>
+              {tab.icon} {idx + 1}. {tab.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* HORIZONTAL SWIPE TAB SELECTOR WITH LEFT / RIGHT CONTROLS */}
+      <div className="relative bg-slate-900/60 p-1.5 sm:p-2 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Left Arrow Button */}
           <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-xs transition shrink-0 ${
-              activeTab === tab.id
-                ? "bg-yellow-500 text-slate-950 shadow-md shadow-yellow-500/20"
-                : "text-slate-400 hover:text-white hover:bg-slate-900/60"
-            }`}
+            type="button"
+            onClick={() => scrollTabs("left")}
+            className="hidden sm:flex shrink-0 p-2 sm:p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold items-center justify-center transition active:scale-95 cursor-pointer"
+            title="Scroll Left"
+            aria-label="Scroll Tabs Left"
           >
-            <span>{tab.icon}</span>
-            <span>{tab.name}</span>
+            ‹
           </button>
-        ))}
+
+          {/* Swipeable Tabs Container */}
+          <div
+            ref={tabsContainerRef}
+            className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 scrollbar-none scroll-smooth w-full touch-pan-x"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl font-bold text-xs transition shrink-0 cursor-pointer min-h-[42px] ${
+                  activeTab === tab.id
+                    ? "bg-yellow-500 text-slate-950 shadow-md shadow-yellow-500/20 scale-[1.02]"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/80 bg-slate-950/40 border border-slate-800/60"
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span className="whitespace-nowrap">{tab.name}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Right Arrow Button */}
+          <button
+            type="button"
+            onClick={() => scrollTabs("right")}
+            className="hidden sm:flex shrink-0 p-2 sm:p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold items-center justify-center transition active:scale-95 cursor-pointer"
+            title="Scroll Right"
+            aria-label="Scroll Tabs Right"
+          >
+            ›
+          </button>
+        </div>
+
+        {/* Mobile Swipe Left / Right Hint Pills */}
+        <div className="flex sm:hidden items-center justify-between pt-1.5 px-1 text-[10px] text-slate-500 font-medium">
+          <button
+            type="button"
+            onClick={() => scrollTabs("left")}
+            className="flex items-center gap-1 text-slate-400 active:text-yellow-400 py-0.5 px-1.5 rounded bg-slate-800/50"
+          >
+            <span>‹ Swipe Left</span>
+          </button>
+          <span className="font-mono text-yellow-500/70">
+            {activeTabIndex + 1} / {tabs.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => scrollTabs("right")}
+            className="flex items-center gap-1 text-slate-400 active:text-yellow-400 py-0.5 px-1.5 rounded bg-slate-800/50"
+          >
+            <span>Swipe Right ›</span>
+          </button>
+        </div>
       </div>
 
       {/* TAB CONTENT */}
-      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-6">
         {/* 1. GAME & ODDS */}
         {activeTab === "game" && (
           <div className="space-y-6">
@@ -1609,21 +1707,73 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         )}
+        {/* TAB STEPPER FOOTER (PREV / NEXT CATEGORY) */}
+        <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => goToTab(activeTabIndex - 1)}
+            disabled={activeTabIndex <= 0}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold transition min-h-[44px]"
+          >
+            <span>‹ Previous:</span>
+            <span>{activeTabIndex > 0 ? tabs[activeTabIndex - 1].name : "Start"}</span>
+          </button>
+
+          <span className="text-[11px] font-bold text-slate-400">
+            Category {activeTabIndex + 1} of {tabs.length}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => goToTab(activeTabIndex + 1)}
+            disabled={activeTabIndex >= tabs.length - 1}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold transition min-h-[44px]"
+          >
+            <span>Next:</span>
+            <span>{activeTabIndex < tabs.length - 1 ? tabs[activeTabIndex + 1].name : "End"}</span>
+            <span>›</span>
+          </button>
+        </div>
       </div>
 
-      {/* BOTTOM FLOATING SAVE BAR (Shown on config tabs) */}
+      {/* BOTTOM DESKTOP SAVE BAR (Shown on config tabs) */}
       {activeTab !== "adminAuth" && (
-        <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
-          <span className="text-xs text-slate-400">
-            💡 Changes apply immediately to all active game rooms and cashier flows.
-          </span>
+        <div className="hidden sm:flex p-4 rounded-2xl bg-slate-900/90 border border-slate-800 items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="text-yellow-400">⚡</span>
+            <span>Changes apply immediately across game engine, deposits, and cashier rules.</span>
+          </div>
 
           <button
             onClick={handleSave}
             disabled={saving || loading}
-            className="px-6 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black text-xs transition shadow-lg shadow-yellow-500/20 disabled:opacity-50"
+            className="px-6 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black text-xs transition shadow-lg shadow-yellow-500/20 disabled:opacity-50 min-h-[44px] cursor-pointer"
           >
             {saving ? "Saving Changes..." : "Save All Settings ✓"}
+          </button>
+        </div>
+      )}
+
+      {/* FLOATING QUICK SAVE BAR ON MOBILE */}
+      {activeTab !== "adminAuth" && (
+        <div className="sm:hidden fixed bottom-14 left-3 right-3 z-30 flex items-center justify-between p-3 rounded-2xl bg-slate-950/95 backdrop-blur-xl border border-yellow-500/50 shadow-2xl shadow-yellow-500/30 animate-in slide-in-from-bottom-4">
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase font-black tracking-wider text-yellow-400">
+              Live Config
+            </span>
+            <span className="text-xs font-bold text-white">
+              {tabs[activeTabIndex]?.name}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-slate-950 font-black text-xs transition shadow-md shadow-yellow-500/30 disabled:opacity-50 min-h-[42px]"
+          >
+            <span>💾</span>
+            <span>{saving ? "Saving..." : "Save Settings"}</span>
           </button>
         </div>
       )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { authFetch } from "../../lib/clientAuth";
+import { authFetch, safeJson } from "../../lib/clientAuth";
 
 const RUPEE = "₹";
 
@@ -31,11 +31,11 @@ export default function AdminWithdrawsPage() {
     try {
       setLoading(true);
       const response = await authFetch("/api/admin/withdraws", { cache: "no-store" });
-      const data = await response.json();
-      if (data.success) {
+      const data = await safeJson(response);
+      if (data?.success) {
         setWithdrawals(data.withdrawals || []);
       } else {
-        showToast(data.message || "Failed to load withdrawals");
+        showToast(data?.message || "Failed to load withdrawals");
       }
     } catch (error) {
       console.error("Withdrawal loading error:", error);
@@ -71,14 +71,14 @@ export default function AdminWithdrawsPage() {
         }),
       });
 
-      const data = await response.json();
-      if (data.success) {
+      const data = await safeJson(response);
+      if (data?.success) {
         showToast("✅ Withdrawal marked as Completed / Dispatched!");
         setApproveModalOpen(false);
         setSelectedTx(null);
         await loadWithdrawals();
       } else {
-        alert(data.message || "Failed to approve withdrawal");
+        alert(data?.message || "Failed to approve withdrawal");
       }
     } catch (error) {
       console.error("Approve error:", error);
@@ -110,14 +110,14 @@ export default function AdminWithdrawsPage() {
         }),
       });
 
-      const data = await response.json();
-      if (data.success) {
+      const data = await safeJson(response);
+      if (data?.success) {
         showToast("🔄 Withdrawal rejected & amount refunded back to player wallet.");
         setRejectModalOpen(false);
         setSelectedTx(null);
         await loadWithdrawals();
       } else {
-        alert(data.message || "Failed to reject withdrawal");
+        alert(data?.message || "Failed to reject withdrawal");
       }
     } catch (error) {
       console.error("Reject error:", error);
@@ -364,12 +364,12 @@ export default function AdminWithdrawsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredWithdrawals.map((item) => {
+                filteredWithdrawals.map((item, idx) => {
                   const isHighValue = Number(item.amount || 0) >= 5000;
                   const paymentTarget = item.upiId || item.bankAccount || item.accountNumber || "N/A";
 
                   return (
-                    <tr key={item._id} className="hover:bg-slate-800/40 transition">
+                    <tr key={item._id || item.id || `withdraw-${idx}-${item.createdAt || ""}`} className="hover:bg-slate-800/40 transition">
                       {/* User Details */}
                       <td className="py-4 px-4">
                         <div className="font-bold text-white text-sm">{item.user?.name || "Player"}</div>

@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { safeJson } from "../../lib/clientAuth";
+import BharatCoinLogo from "../../components/BharatCoinLogo";
 
 export default function AdminLogin() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("admin@coinflip.com");
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
   const [step, setStep] = useState(1); // 1: Email + Password, 2: 2FA 6-Digit PIN
@@ -37,9 +39,9 @@ export default function AdminLogin() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      const data = await safeJson(response);
 
-      if (data.requireTwoFactor) {
+      if (data?.requireTwoFactor) {
         setStep(2);
         setLoading(false);
         if (data.message && step === 2) {
@@ -48,8 +50,8 @@ export default function AdminLogin() {
         return;
       }
 
-      if (!response.ok || !data.success) {
-        setError(data.message || "Invalid credentials provided.");
+      if (!response.ok || !data?.success) {
+        setError(data?.message || "Invalid credentials provided.");
         return;
       }
 
@@ -80,11 +82,11 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070B14] flex flex-col justify-center items-center px-4 py-8 relative selection:bg-yellow-500 selection:text-black">
+    <div suppressHydrationWarning className="min-h-screen bg-[#070B14] flex flex-col justify-center items-center px-4 py-8 relative selection:bg-yellow-500 selection:text-black">
       {/* Background ambient lighting */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(234,179,8,0.12),transparent_40%),radial-gradient(circle_at_bottom,rgba(147,51,234,0.08),transparent_40%)] pointer-events-none" />
 
-      <div className="relative w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl">
+      <div suppressHydrationWarning className="relative w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl">
         {/* Security Badge */}
         <div className="flex items-center justify-center mb-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950 border border-slate-800 text-xs font-bold text-slate-300 shadow-inner">
@@ -96,17 +98,23 @@ export default function AdminLogin() {
         </div>
 
         {/* Logo / Header */}
-        <div className="text-center mb-7">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-yellow-500 to-amber-300 flex items-center justify-center text-black font-black text-2xl shadow-xl shadow-yellow-500/20">
-            {step === 2 ? "🛡️" : "🪙"}
+        <div className="text-center mb-7 flex flex-col items-center">
+          <div className="mb-3">
+            {step === 2 ? (
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-yellow-500 to-amber-300 flex items-center justify-center text-black font-black text-2xl shadow-xl shadow-yellow-500/20">
+                🛡️
+              </div>
+            ) : (
+              <BharatCoinLogo size="xl" />
+            )}
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">
-            {step === 2 ? "Two-Factor Verification" : "CoinFlip Control Center"}
+            {step === 2 ? "Two-Factor Verification" : "CoinFlip Admin Portal"}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             {step === 2
               ? "Enter your secret 6-digit Admin Security PIN"
-              : "Authorized administrator credentials required for entry."}
+              : "Authorized Bharat administrator credentials required."}
           </p>
         </div>
 
@@ -117,7 +125,7 @@ export default function AdminLogin() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" suppressHydrationWarning>
           {step === 1 ? (
             <>
               <div>
@@ -130,7 +138,8 @@ export default function AdminLogin() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  autoFocus
+                  autoComplete="email"
+                  suppressHydrationWarning
                   className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 text-xs font-medium outline-none transition focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/20"
                 />
               </div>
@@ -145,6 +154,8 @@ export default function AdminLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="current-password"
+                  suppressHydrationWarning
                   className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 text-xs font-medium outline-none transition focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/20"
                 />
               </div>
@@ -178,7 +189,8 @@ export default function AdminLogin() {
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                   required
-                  autoFocus
+                  autoComplete="one-time-code"
+                  suppressHydrationWarning
                   className="w-full px-4 py-3.5 rounded-xl bg-slate-950 border border-slate-800 text-yellow-400 text-center tracking-[0.5em] text-xl font-mono font-black outline-none transition focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500/20"
                 />
               </div>
@@ -188,6 +200,7 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading || (step === 2 && pin.length !== 6)}
+            suppressHydrationWarning
             className="w-full mt-2 py-3.5 px-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-lg shadow-yellow-500/20 flex items-center justify-center gap-2"
           >
             {loading ? (
@@ -219,7 +232,7 @@ export default function AdminLogin() {
           )}
         </form>
 
-        <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
+        <div className="mt-6 pt-5 border-t border-slate-800/80 text-center" suppressHydrationWarning>
           <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
             <span>🛡️</span>
             <span>All login attempts are logged &amp; IP-monitored.</span>

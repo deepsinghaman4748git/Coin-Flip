@@ -21,7 +21,10 @@ export async function POST(request) {
       );
     }
 
-    const { transactionId, reason } = await request.json();
+    const body = await request.json();
+    const transactionId =
+      body.transactionId || body.depositId || body.id || body._id;
+    const reason = body.reason;
 
     if (!transactionId) {
       return NextResponse.json(

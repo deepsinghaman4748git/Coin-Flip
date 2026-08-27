@@ -22,9 +22,8 @@ export async function GET(request) {
     }
 
     await connectDB();
-    const user = await User.findById(adminUser.userId).select(
-      "name email role twoFactorEnabled passwordChangedAt createdAt"
-    );
+    const adminId = adminUser._id || adminUser.id || adminUser.userId;
+    const user = adminUser.email ? adminUser : await User.findById(adminId);
 
     if (!user) {
       return NextResponse.json(
@@ -36,8 +35,8 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       security: {
-        name: user.name,
-        email: user.email,
+        name: user.name || "Administrator",
+        email: user.email || "admin@coinflip.com",
         twoFactorEnabled: !!user.twoFactorEnabled,
         passwordChangedAt: user.passwordChangedAt,
         createdAt: user.createdAt,
@@ -64,12 +63,13 @@ export async function POST(request) {
     }
 
     await connectDB();
-    const user = await User.findById(adminUser.userId);
+    const adminId = adminUser._id || adminUser.id || adminUser.userId;
+    let user = await User.findById(adminId);
+    if (!user && adminUser.email) {
+      user = await User.findOne({ email: adminUser.email });
+    }
     if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Admin user not found" },
-        { status: 404 }
-      );
+      user = adminUser;
     }
 
     const body = await request.json();
@@ -100,7 +100,17 @@ export async function POST(request) {
         );
       }
 
-      const match = await bcrypt.compare(currentPassword, user.password);
+      let match = false;
+      try {
+        if (user.password && (user.password.startsWith("$2a$") || user.password.startsWith("$2b$") || user.password.startsWith("$2y$"))) {
+          match = await bcrypt.compare(currentPassword, user.password);
+        } else if (user.password) {
+          match = currentPassword === user.password;
+        }
+      } catch (cmpErr) {
+        match = false;
+      }
+
       if (!match) {
         return NextResponse.json(
           { success: false, message: "Current password is incorrect" },
@@ -145,7 +155,17 @@ export async function POST(request) {
         );
       }
 
-      const match = await bcrypt.compare(currentPassword, user.password);
+      let match = false;
+      try {
+        if (user.password && (user.password.startsWith("$2a$") || user.password.startsWith("$2b$") || user.password.startsWith("$2y$"))) {
+          match = await bcrypt.compare(currentPassword, user.password);
+        } else if (user.password) {
+          match = currentPassword === user.password;
+        }
+      } catch (cmpErr) {
+        match = false;
+      }
+
       if (!match) {
         return NextResponse.json(
           { success: false, message: "Incorrect password. Cannot set 2FA PIN." },
@@ -175,7 +195,17 @@ export async function POST(request) {
         );
       }
 
-      const match = await bcrypt.compare(currentPassword, user.password);
+      let match = false;
+      try {
+        if (user.password && (user.password.startsWith("$2a$") || user.password.startsWith("$2b$") || user.password.startsWith("$2y$"))) {
+          match = await bcrypt.compare(currentPassword, user.password);
+        } else if (user.password) {
+          match = currentPassword === user.password;
+        }
+      } catch (cmpErr) {
+        match = false;
+      }
+
       if (!match) {
         return NextResponse.json(
           { success: false, message: "Incorrect password verification" },
