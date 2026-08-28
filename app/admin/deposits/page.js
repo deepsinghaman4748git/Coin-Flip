@@ -544,13 +544,15 @@ export default function AdminDepositsPage() {
                 <span className="text-yellow-400 font-mono font-bold select-all">{selectedApproveTx.utr || "N/A"}</span>
               </div>
               <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
-                <span className="text-slate-400">First Deposit Status:</span>
+                <span className="text-slate-400">Welcome Bonus Eligibility:</span>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  !selectedApproveTx.user?.firstDepositDone
+                  !selectedApproveTx.user?.hasClaimedWelcomeBonus && !selectedApproveTx.user?.firstDepositDone
                     ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
                     : "bg-slate-800 text-slate-400"
                 }`}>
-                  {!selectedApproveTx.user?.firstDepositDone ? "🎁 First Time Depositor" : "Repeat Depositor"}
+                  {!selectedApproveTx.user?.hasClaimedWelcomeBonus && !selectedApproveTx.user?.firstDepositDone
+                    ? "🎁 Eligible (1st Time New User)"
+                    : "🔒 Ineligible (Repeat / Already Claimed)"}
                 </span>
               </div>
             </div>
@@ -560,10 +562,12 @@ export default function AdminDepositsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-sm font-bold text-purple-200 flex items-center gap-1.5">
-                    <span>🎁</span> Grant Deposit Bonus to this User?
+                    <span>🎁</span> 100% Welcome Bonus / Manual Bonus
                   </h4>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Aap decide karein ki is user ko kitna bonus dena hai (e.g. 100% match, custom amount, ya koi bonus nahi).
+                    {!selectedApproveTx.user?.hasClaimedWelcomeBonus && !selectedApproveTx.user?.firstDepositDone
+                      ? "New user ki pehli deposit par 100% welcome match bonus."
+                      : "Repeat user: Welcome bonus sirf new users ke 1st deposit ke liye hota hai."}
                   </p>
                 </div>
                 <button

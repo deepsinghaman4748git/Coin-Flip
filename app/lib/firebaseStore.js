@@ -13,12 +13,12 @@ import {
   limit as fsLimit,
 } from "firebase/firestore";
 
-// High-speed in-memory cache for Firestore collection snapshots (5s TTL)
+// High-speed in-memory cache for Firestore collection snapshots (2s TTL)
 const collectionCache = new Map();
 const singleDocCache = new Map();
-const CACHE_TTL_MS = 6000;
+const CACHE_TTL_MS = 2000;
 
-function withTimeout(promise, ms = 1800, fallback = null) {
+function withTimeout(promise, ms = 5000, fallback = null) {
   return Promise.race([
     promise,
     new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
@@ -128,7 +128,7 @@ export async function fsFind(collectionName, filter = {}, sortOptions = null, li
       allDocs = cachedEntry.data;
     } else {
       const colRef = collection(firestore, collectionName);
-      const snap = await withTimeout(getDocs(colRef), 1800, null);
+      const snap = await withTimeout(getDocs(colRef), 5000, null);
       if (snap) {
         allDocs = [];
         snap.forEach((d) => {
@@ -213,7 +213,7 @@ export async function fsFindById(collectionName, id) {
     }
 
     const docRef = doc(firestore, collectionName, idStr);
-    const snap = await withTimeout(getDoc(docRef), 1800, null);
+    const snap = await withTimeout(getDoc(docRef), 5000, null);
     if (snap && snap.exists()) {
       const data = normalizeDoc(snap);
       if (data) {
@@ -239,7 +239,7 @@ export async function fsCreate(collectionName, data) {
       updatedAt: new Date(),
     };
     const sanitizedData = sanitizeForFirestore(rawData);
-    await withTimeout(setDoc(docRef, sanitizedData), 1800, null);
+    await withTimeout(setDoc(docRef, sanitizedData), 5000, null);
     invalidateCache(collectionName, id);
     return { ...rawData, ...sanitizedData, _id: id };
   } catch (err) {
@@ -298,7 +298,7 @@ export async function fsUpdateOne(collectionName, filter, update, options = {}) 
 
     updatedFields.updatedAt = new Date();
     const sanitizedFields = sanitizeForFirestore(updatedFields) || {};
-    await withTimeout(updateDoc(docRef, sanitizedFields), 1800, null);
+    await withTimeout(updateDoc(docRef, sanitizedFields), 5000, null);
     invalidateCache(collectionName, target._id);
     return { ...target, ...updatedFields };
   } catch (err) {

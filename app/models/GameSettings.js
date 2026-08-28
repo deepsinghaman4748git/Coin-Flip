@@ -36,7 +36,7 @@ const gameSettingsSchema = new mongoose.Schema(
 
     payoutMultiplier: {
       type: Number,
-      default: 2,
+      default: 1.8,
     },
 
     // Tie / Edge Match Feature

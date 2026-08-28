@@ -1,8 +1,9 @@
-// Web Audio API Sound Effects Engine for CoinFlip
-// Zero-latency, highly compatible, and works completely offline without asset loading issues.
+// Web Audio API Sound Effects & Real Hardware Haptics Engine for CoinFlip
+// Zero-latency, highly compatible, and works completely offline with hardware vibration support.
 
 let audioCtx = null;
 let soundEnabled = true;
+let hapticsEnabled = true;
 
 function getAudioContext() {
   if (typeof window === "undefined") return null;
@@ -33,8 +34,73 @@ export function setSoundEnabled(enabled) {
   }
 }
 
+// 📳 Real Hardware Haptics Vibration Engine
+export function isHapticsEnabled() {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("coinflip_haptics_enabled");
+    if (stored !== null) return stored === "true";
+  }
+  return hapticsEnabled;
+}
+
+export function setHapticsEnabled(enabled) {
+  hapticsEnabled = enabled;
+  if (typeof window !== "undefined") {
+    localStorage.setItem("coinflip_haptics_enabled", enabled ? "true" : "false");
+  }
+}
+
+export function triggerHaptic(type = "tap") {
+  if (typeof window === "undefined") return;
+  if (!isHapticsEnabled()) return;
+  if (typeof navigator === "undefined" || !navigator.vibrate) return;
+
+  try {
+    switch (type) {
+      case "tap":
+      case "light":
+        navigator.vibrate(15);
+        break;
+      case "medium":
+      case "chip":
+        navigator.vibrate(30);
+        break;
+      case "heavy":
+      case "lock":
+        navigator.vibrate(55);
+        break;
+      case "spin":
+        // Light rhythmic vibration during coin spin
+        navigator.vibrate([20, 25, 20, 25, 20]);
+        break;
+      case "win":
+      case "success":
+        // Celebratory jackpot pulse pattern
+        navigator.vibrate([60, 40, 90, 50, 140]);
+        break;
+      case "lose":
+      case "error":
+        // Gentle descending double vibration
+        navigator.vibrate([70, 50, 70]);
+        break;
+      case "tick":
+        navigator.vibrate(10);
+        break;
+      case "bell":
+        navigator.vibrate([25, 30, 25]);
+        break;
+      default:
+        navigator.vibrate(20);
+        break;
+    }
+  } catch {
+    // Graceful fallback for non-supporting webviews
+  }
+}
+
 // 1. Subtle UI Button Click
 export function playClickSound() {
+  triggerHaptic("tap");
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -59,6 +125,7 @@ export function playClickSound() {
 
 // 2. Coin Flip & Spinning Metallic Rattle / Whoosh Sound
 export function playCoinSpinSound() {
+  triggerHaptic("spin");
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -97,6 +164,7 @@ export function playCoinSpinSound() {
 
 // 3. Coin Land / Solid Metallic Table Clink
 export function playCoinLandSound() {
+  triggerHaptic("medium");
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -132,6 +200,7 @@ export function playCoinLandSound() {
 
 // 4. Winning Celebratory Fanfare & Coin Chimes
 export function playWinSound() {
+  triggerHaptic("win");
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -182,6 +251,7 @@ export function playWinSound() {
 
 // 5. Soft Loss / Descending Tone
 export function playLoseSound() {
+  triggerHaptic("lose");
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -216,6 +286,7 @@ export function playLoseSound() {
 
 // 6. Timer Pressure Tick Sound (Urgent and tense countdown ticks)
 export function playTimerTickSound(urgent = false) {
+  triggerHaptic("tick");
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -280,6 +351,7 @@ export function playWindWhooshSound(intensity = "medium") {
 
 // 8. Bet Placed / Chip Placed Audio
 export function playBetPlacedSound() {
+  triggerHaptic("lock");
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -304,6 +376,7 @@ export function playBetPlacedSound() {
 
 // 9. Round Start Bell (Casino Table Bell)
 export function playRoundStartBell() {
+  triggerHaptic("bell");
   if (!isSoundEnabled()) return;
   const ctx = getAudioContext();
   if (!ctx) return;

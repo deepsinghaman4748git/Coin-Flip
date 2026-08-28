@@ -66,14 +66,14 @@ export async function POST(request) {
         maintenanceMode: false,
         minBet: 10,
         maxBet: 10000,
-        payoutMultiplier: 2,
+        payoutMultiplier: 1.8,
       });
     }
 
     const minBet = Number(settings.minBet ?? 10);
     const maxBet = Number(settings.maxBet ?? 10000);
     const payoutMultiplier = Number(
-      settings.payoutMultiplier ?? 2
+      settings.payoutMultiplier ?? 1.8
     );
 
     // Game enabled check
@@ -231,6 +231,7 @@ export async function POST(request) {
       result,
       entryFee,
       winAmount,
+      payoutMultiplier: effectiveMultiplier,
       status: won ? "won" : "lost",
     });
 

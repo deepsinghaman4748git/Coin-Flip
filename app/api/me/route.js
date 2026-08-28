@@ -42,7 +42,7 @@ export async function GET(request) {
         lastDailyBonusDate: user.lastDailyBonusDate || "",
         dailyBonusStreak: Number(user.dailyBonusStreak || 0),
         totalDailyBonusClaimed: Number(user.totalDailyBonusClaimed || 0),
-        hasClaimedWelcomeBonus: Boolean(user.hasClaimedWelcomeBonus),
+        hasClaimedWelcomeBonus: Boolean(user.hasClaimedWelcomeBonus || user.firstDepositDone),
         firstDepositDone: Boolean(user.firstDepositDone),
         linkedUpiId: user.linkedUpiId || "",
         isUpiLocked: Boolean(user.isUpiLocked),

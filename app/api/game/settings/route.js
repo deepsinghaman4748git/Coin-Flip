@@ -38,7 +38,7 @@ export async function GET() {
           maxBet: Number(settings.maxBet ?? 10000),
 
           payoutMultiplier:
-            Number(settings.payoutMultiplier ?? 2),
+            Number(settings.payoutMultiplier ?? 1.8),
 
           tieEnabled: settings.tieEnabled !== false,
           tieProbabilityPercent: Number(settings.tieProbabilityPercent ?? 8),

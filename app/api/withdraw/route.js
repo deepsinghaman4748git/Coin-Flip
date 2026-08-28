@@ -65,7 +65,7 @@ export async function POST(request) {
         maintenanceMode: false,
         minBet: 10,
         maxBet: 10000,
-        payoutMultiplier: 2,
+        payoutMultiplier: 1.8,
         minDeposit: 10,
         maxDeposit: 50000,
         minWithdrawal: 100,

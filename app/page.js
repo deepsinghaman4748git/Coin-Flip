@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Volume2, VolumeX, Sparkles, Bot, TrendingUp, Clock, RotateCcw, Trophy, CheckCircle2, ShieldCheck, Flame, Zap, MoreVertical } from "lucide-react";
+import { Volume2, VolumeX, Sparkles, Bot, TrendingUp, Clock, RotateCcw, Trophy, CheckCircle2, ShieldCheck, Flame, Zap, MoreVertical, Smartphone, ChevronUp, ChevronDown, SmartphoneCharging } from "lucide-react";
 import DailySpinView from "./components/DailySpinView.jsx";
 import ReferralView from "./components/ReferralView.jsx";
 import BharatCoinLogo from "./components/BharatCoinLogo.jsx";
 import {
   isSoundEnabled,
   setSoundEnabled,
+  isHapticsEnabled,
+  setHapticsEnabled,
+  triggerHaptic,
   playClickSound,
   playCoinSpinSound,
   playCoinLandSound,
@@ -915,12 +918,14 @@ const inputClass =
 function AppShell({ user, section, setSection, logout, refreshUser }) {
   const [threeDotOpen, setThreeDotOpen] = useState(false);
   const [soundEnabledState, setSoundEnabledState] = useState(true);
+  const [hapticsEnabledState, setHapticsEnabledState] = useState(true);
   const [announcement, setAnnouncement] = useState("");
   const [announcementDismissed, setAnnouncementDismissed] = useState(false);
   const [isSyncingBalance, setIsSyncingBalance] = useState(false);
 
   useEffect(() => {
     setSoundEnabledState(isSoundEnabled());
+    setHapticsEnabledState(isHapticsEnabled());
   }, []);
 
   const handleToggleSound = () => {
@@ -929,6 +934,15 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
     setSoundEnabled(next);
     if (next) {
       playClickSound();
+    }
+  };
+
+  const handleToggleHaptics = () => {
+    const next = !hapticsEnabledState;
+    setHapticsEnabledState(next);
+    setHapticsEnabled(next);
+    if (next) {
+      triggerHaptic("win");
     }
   };
 
@@ -1192,6 +1206,37 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
                           }`}
                         >
                           {soundEnabledState ? "ON 🔊" : "OFF 🔇"}
+                        </span>
+                      </button>
+
+                      {/* Phone Vibration (Haptics Engine) Toggle */}
+                      <button
+                        type="button"
+                        id="menu-haptics-toggle-btn"
+                        onClick={() => {
+                          handleToggleHaptics();
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 transition text-left cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2.5 text-gray-200">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            hapticsEnabledState ? "bg-cyan-400/20 text-cyan-400" : "bg-white/10 text-gray-400"
+                          }`}>
+                            <Smartphone className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="block text-white font-bold">Phone Vibration</span>
+                            <span className="text-[10px] text-gray-400 font-normal">हार्डवेयर हैप्टिक्स (Vibrate)</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[10px] px-2.5 py-1 rounded-full font-black uppercase transition ${
+                            hapticsEnabledState
+                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/20"
+                              : "bg-white/10 text-gray-400"
+                          }`}
+                        >
+                          {hapticsEnabledState ? "ON 📳" : "OFF ⏹️"}
                         </span>
                       </button>
 
@@ -1494,7 +1539,23 @@ function AppShell({ user, section, setSection, logout, refreshUser }) {
 
 function DashboardView({ user, setSection, refreshUser }) {
   const [syncing, setSyncing] = useState(false);
+  const [gameSettings, setGameSettings] = useState({ payoutMultiplier: 1.8, tieMultiplier: 10, minBet: 10 });
   const isFirstDepositEligible = !user.hasClaimedWelcomeBonus && !user.firstDepositDone;
+
+  useEffect(() => {
+    authFetch("/api/game/settings", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.success && data.settings) {
+          setGameSettings({
+            payoutMultiplier: Number(data.settings.payoutMultiplier ?? 1.8),
+            tieMultiplier: Number(data.settings.tieMultiplier ?? 10),
+            minBet: Number(data.settings.minBet ?? 10),
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const triggerRefresh = async () => {
     setSyncing(true);
@@ -1542,7 +1603,7 @@ function DashboardView({ user, setSection, refreshUser }) {
             Welcome, {user.name}
           </h1>
           <p className="text-gray-400 mt-3 max-w-2xl">
-            Aapka CoinFlip account ready hai. Daily free spin se bonus jeetiye, doston ko refer karke lifetime commission kamaiye, aur 2X CoinFlip kheliye!
+            Aapka CoinFlip account ready hai. Daily free spin se bonus jeetiye, doston ko refer karke lifetime commission kamaiye, aur {gameSettings.payoutMultiplier}X CoinFlip kheliye!
           </p>
           <div className="flex flex-wrap gap-3 mt-7">
             <button
@@ -1617,8 +1678,8 @@ function DashboardView({ user, setSection, refreshUser }) {
         />
         <StatCard
           title="Welcome Bonus"
-          value={user.hasClaimedWelcomeBonus ? "Claimed ✓" : "100% Active 🎁"}
-          accent={user.hasClaimedWelcomeBonus ? "green" : "yellow"}
+          value={user?.hasClaimedWelcomeBonus || user?.firstDepositDone ? "Claimed ✓" : "100% (1st Deposit)"}
+          accent={user?.hasClaimedWelcomeBonus || user?.firstDepositDone ? "green" : "yellow"}
         />
       </div>
 
@@ -1646,10 +1707,10 @@ function DashboardView({ user, setSection, refreshUser }) {
 
             <div>
               <h2 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-amber-500 tracking-tight flex items-center gap-2">
-                COINFLIP 2X ARCADE
+                COINFLIP {gameSettings.payoutMultiplier}X ARCADE
               </h2>
               <p className="text-sm text-gray-300 mt-2 leading-relaxed">
-                Choose <strong className="text-yellow-400">HEAD 👑</strong> or <strong className="text-yellow-400">TAIL 🪙</strong>, enter your stake, and flip the gold coin in real-time. Win guaranteed <span className="text-emerald-400 font-bold">2X instant payout</span> or hit the <span className="text-amber-400 font-bold">10X Tie Jackpot!</span>
+                Choose <strong className="text-yellow-400">HEAD 👑</strong> or <strong className="text-yellow-400">TAIL 🪙</strong>, enter your stake, and flip the gold coin in real-time. Win guaranteed <span className="text-emerald-400 font-bold">{gameSettings.payoutMultiplier}X instant payout</span> or hit the <span className="text-amber-400 font-bold">{gameSettings.tieMultiplier}X Tie Jackpot!</span>
               </p>
             </div>
 
@@ -1657,11 +1718,11 @@ function DashboardView({ user, setSection, refreshUser }) {
             <div className="grid grid-cols-3 gap-3 pt-1">
               <div className="p-3 rounded-2xl bg-black/40 border border-white/10 text-center">
                 <div className="text-[10px] text-gray-400 font-bold uppercase">Multiplier</div>
-                <div className="text-lg font-black text-yellow-400">2.0X</div>
+                <div className="text-lg font-black text-yellow-400">{gameSettings.payoutMultiplier}X</div>
               </div>
               <div className="p-3 rounded-2xl bg-black/40 border border-white/10 text-center">
                 <div className="text-[10px] text-gray-400 font-bold uppercase">Min Stake</div>
-                <div className="text-lg font-black text-white">{RUPEE}10</div>
+                <div className="text-lg font-black text-white">{RUPEE}{gameSettings.minBet}</div>
               </div>
               <div className="p-3 rounded-2xl bg-black/40 border border-white/10 text-center">
                 <div className="text-[10px] text-gray-400 font-bold uppercase">RTP Rate</div>
@@ -1676,7 +1737,7 @@ function DashboardView({ user, setSection, refreshUser }) {
                 className="flex-1 sm:flex-none px-8 py-4 rounded-2xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-400 text-black font-black text-sm uppercase tracking-wider shadow-xl shadow-yellow-400/25 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 group-hover:animate-urgent"
               >
                 <span>🎮</span>
-                <span>PLAY COINFLIP NOW (2X)</span>
+                <span>PLAY COINFLIP NOW ({gameSettings.payoutMultiplier}X)</span>
                 <span>➔</span>
               </button>
               <button
@@ -1715,7 +1776,7 @@ function DashboardView({ user, setSection, refreshUser }) {
                       HEAD / TAIL
                     </span>
                     <span className="text-[9px] font-bold bg-black/20 px-2 py-0.2 rounded-full mt-0.5">
-                      2X WIN
+                      {gameSettings.payoutMultiplier}X WIN
                     </span>
                   </div>
                 </div>
@@ -1724,11 +1785,11 @@ function DashboardView({ user, setSection, refreshUser }) {
               {/* Quick Options Chips */}
               <div className="flex items-center gap-2 mt-2">
                 <span className="px-2.5 py-1 rounded-xl bg-yellow-400/20 text-yellow-300 border border-yellow-400/30 text-[11px] font-black">
-                  👑 HEAD (2X)
+                  👑 HEAD ({gameSettings.payoutMultiplier}X)
                 </span>
                 <span className="text-xs text-gray-500 font-bold">vs</span>
                 <span className="px-2.5 py-1 rounded-xl bg-yellow-400/20 text-yellow-300 border border-yellow-400/30 text-[11px] font-black">
-                  🪙 TAIL (2X)
+                  🪙 TAIL ({gameSettings.payoutMultiplier}X)
                 </span>
               </div>
               <p className="text-[11px] text-gray-400 mt-2 font-semibold">
@@ -1748,7 +1809,7 @@ function DashboardView({ user, setSection, refreshUser }) {
         >
           {/* Badge */}
           <div className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-red-600 to-amber-500 text-white font-black text-[9px] uppercase tracking-wider">
-            2X WIN
+            {gameSettings.payoutMultiplier}X WIN
           </div>
 
           <div>
@@ -1757,7 +1818,7 @@ function DashboardView({ user, setSection, refreshUser }) {
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-600 p-0.5 shadow-lg shadow-yellow-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <div className="w-full h-full rounded-[14px] bg-gradient-to-br from-yellow-400 to-amber-500 flex flex-col items-center justify-center text-black font-black">
                   <span className="text-xl">🪙</span>
-                  <span className="text-[8px] font-black">2X</span>
+                  <span className="text-[8px] font-black">{gameSettings.payoutMultiplier}X</span>
                 </div>
               </div>
               <div>
@@ -1771,12 +1832,12 @@ function DashboardView({ user, setSection, refreshUser }) {
             </div>
 
             <p className="text-gray-400 text-xs mt-3.5 leading-relaxed">
-              Choose HEAD or TAIL, enter stake and flip the 3D coin for instant 2X cash payout.
+              Choose HEAD or TAIL, enter stake and flip the 3D coin for instant {gameSettings.payoutMultiplier}X cash payout.
             </p>
 
             <div className="flex items-center gap-2 mt-4 text-[11px]">
               <span className="px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-gray-300">
-                Min {RUPEE}10
+                Min {RUPEE}{gameSettings.minBet}
               </span>
               <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold">
                 96.8% RTP
@@ -1887,7 +1948,7 @@ function GameView({ user, refreshUser, setSection }) {
       "Game is temporarily under maintenance. Please try again later.",
     minBet: 10,
     maxBet: 10000,
-    payoutMultiplier: 2,
+    payoutMultiplier: 1.8,
     tieEnabled: true,
     tieProbabilityPercent: 8,
     tieMultiplier: 10,
@@ -1977,7 +2038,7 @@ function GameView({ user, refreshUser, setSection }) {
             "Game is temporarily under maintenance. Please try again later.",
           minBet: Number(data.settings.minBet ?? 10),
           maxBet: Number(data.settings.maxBet ?? 10000),
-          payoutMultiplier: Number(data.settings.payoutMultiplier ?? 2),
+          payoutMultiplier: Number(data.settings.payoutMultiplier ?? 1.8),
           tieEnabled: data.settings.tieEnabled !== false,
           tieProbabilityPercent: Number(data.settings.tieProbabilityPercent ?? 8),
           tieMultiplier: Number(data.settings.tieMultiplier ?? 10),
@@ -2692,7 +2753,7 @@ function GameView({ user, refreshUser, setSection }) {
                 <div className="text-center sm:text-left">
                   <div className="text-sm sm:text-base font-black leading-none flex items-center justify-center sm:justify-start gap-1">
                     <span>HEAD</span>
-                    <span className="text-[10px] px-1 py-0.2 rounded bg-black/20 font-black">2X</span>
+                    <span className="text-[10px] px-1 py-0.2 rounded bg-black/20 font-black">{settings.payoutMultiplier}X</span>
                   </div>
                   <div
                     className={`text-[10px] sm:text-xs mt-1 font-bold ${
@@ -2790,7 +2851,7 @@ function GameView({ user, refreshUser, setSection }) {
                 <div className="text-center sm:text-left">
                   <div className="text-sm sm:text-base font-black leading-none flex items-center justify-center sm:justify-start gap-1">
                     <span>TAIL</span>
-                    <span className="text-[10px] px-1 py-0.2 rounded bg-black/20 font-black">2X</span>
+                    <span className="text-[10px] px-1 py-0.2 rounded bg-black/20 font-black">{settings.payoutMultiplier}X</span>
                   </div>
                   <div
                     className={`text-[10px] sm:text-xs mt-1 font-bold ${
@@ -2971,10 +3032,10 @@ function GameView({ user, refreshUser, setSection }) {
             </h2>
             <div className="space-y-3.5 mt-4">
               {[
-                ["01", "12s Betting Window: Place and lock your prediction before timer ends"],
+                ["01", `${settings.speedRoundSeconds}s Betting Window: Place and lock your prediction before timer ends`],
                 ["02", "3s Coin Flip: Bets lock automatically and 3D coin spins live"],
-                ["03", "Instant Payout: 2X on Head/Tail or 10X Mega Jackpot on Tie"],
-                ["04", "Non-stop Cycle: Next round starts immediately with new odds"],
+                ["03", `Instant Payout: ${settings.payoutMultiplier}X on Head/Tail or ${settings.tieMultiplier}X Mega Jackpot on Tie`],
+                ["04", "Non-stop Cycle: Next round starts immediately with updated odds"],
               ].map(([n, text]) => (
                 <div key={n} className="flex gap-3 items-start">
                   <span className="h-7 w-7 shrink-0 rounded-lg bg-yellow-400/10 text-yellow-400 flex items-center justify-center font-black text-xs border border-yellow-400/20">
@@ -2998,11 +3059,11 @@ function GameView({ user, refreshUser, setSection }) {
             <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
               <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
                 <span className="text-gray-400 block text-[10px]">Round Pace:</span>
-                <span className="font-bold text-white">12s + 3s Turbo</span>
+                <span className="font-bold text-white">{settings.speedRoundSeconds}s + 3s Turbo</span>
               </div>
               <div className="p-2 rounded-lg bg-white/[0.03] border border-white/5">
                 <span className="text-gray-400 block text-[10px]">Multiplier:</span>
-                <span className="font-bold text-yellow-300">2X / 10X Tie</span>
+                <span className="font-bold text-yellow-300">{settings.payoutMultiplier}X / {settings.tieMultiplier}X Tie</span>
               </div>
             </div>
           </div>
@@ -3079,7 +3140,7 @@ function GameView({ user, refreshUser, setSection }) {
                     {outcome}
                   </span>
                   <span className="text-[9px] font-semibold opacity-75">
-                    {isHead ? "चित (2X)" : isTail ? "पट (2X)" : "टाई (10X)"}
+                    {isHead ? `चित (${settings.payoutMultiplier}X)` : isTail ? `पट (${settings.payoutMultiplier}X)` : `टाई (${settings.tieMultiplier}X)`}
                   </span>
                 </div>
               );
@@ -3356,8 +3417,7 @@ function WalletView({ user: parentUser, refreshUser }) {
     backupUpiId: "",
     merchantName: "CoinFlip Official",
     qrCode: "",
-    qrCodeType: "both",
-    barcodeNumber: "",
+    qrCodeType: "auto_upi",
     showQrBarcode: true,
     depositInstructions: "",
     minDeposit: 10,
@@ -3398,8 +3458,7 @@ function WalletView({ user: parentUser, refreshUser }) {
           backupUpiId: st.settings.backupUpiId || "",
           merchantName: st.settings.merchantName || "CoinFlip Official",
           qrCode: st.settings.qrCode || "",
-          qrCodeType: st.settings.qrCodeType || "both",
-          barcodeNumber: st.settings.barcodeNumber || "",
+          qrCodeType: st.settings.qrCodeType || "auto_upi",
           showQrBarcode: st.settings.showQrBarcode !== false,
           depositInstructions: st.settings.depositInstructions || "",
           minDeposit: Number(st.settings.minDeposit ?? 10),
@@ -3416,6 +3475,31 @@ function WalletView({ user: parentUser, refreshUser }) {
       navigator.clipboard.writeText(text);
       setCopiedUpi(true);
       setTimeout(() => setCopiedUpi(false), 2000);
+    }
+  }
+
+  function openUpiApp(appName) {
+    const upi = adminSettings.upiId || "coinflip.pay@upi";
+    const name = encodeURIComponent(adminSettings.merchantName || "CoinFlip Official");
+    const amt = encodeURIComponent(amount || "100");
+    const note = encodeURIComponent("CoinFlip Deposit");
+    const upiParams = `pa=${encodeURIComponent(upi)}&pn=${name}&am=${amt}&cu=INR&tn=${note}`;
+
+    copyToClipboard(upi);
+
+    let deepLink = `upi://pay?${upiParams}`;
+    if (appName === "phonepe") {
+      deepLink = `phonepe://pay?${upiParams}`;
+    } else if (appName === "gpay") {
+      deepLink = `tez://upi/pay?${upiParams}`;
+    } else if (appName === "paytm") {
+      deepLink = `paytmmp://pay?${upiParams}`;
+    }
+
+    try {
+      window.location.href = deepLink;
+    } catch (e) {
+      window.open(deepLink, "_blank");
     }
   }
 
@@ -3620,8 +3704,8 @@ function WalletView({ user: parentUser, refreshUser }) {
         </div>
       </div>
 
-      {/* 100% Welcome Bonus Promo Banner */}
-      {!user?.hasClaimedWelcomeBonus && (
+      {/* 100% Welcome Bonus Promo Banner (Strictly 1st Deposit for New Users Only) */}
+      {!user?.hasClaimedWelcomeBonus && !user?.firstDepositDone && (
         <div className="rounded-3xl border border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 via-amber-500/15 to-yellow-500/10 p-6 shadow-lg">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -3669,24 +3753,24 @@ function WalletView({ user: parentUser, refreshUser }) {
             </p>
           </div>
 
-          {/* Official Admin Payment UPI, QR & Barcode Section */}
+          {/* Official Admin Payment UPI & QR Code Section */}
           <div className="rounded-2xl bg-gradient-to-b from-yellow-500/15 via-[#0B1120] to-[#0B1120] border border-yellow-500/30 p-4 space-y-3.5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-black text-yellow-400 uppercase tracking-wider flex items-center gap-1.5">
                   <span>📱</span>
-                  <span>Official UPI Payment QR &amp; Barcode</span>
+                  <span>Official UPI Payment &amp; Direct App Pay</span>
                 </p>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  Scan QR with any app (GPay / PhonePe / Paytm) or copy UPI ID
+                  Select your UPI app directly or scan the QR code to transfer {RUPEE}{amount || "100"}
                 </p>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-                Instant Scan
+                Direct Launch
               </span>
             </div>
 
-            {/* QR Code & Barcode Display Container */}
+            {/* QR Code & Direct UPI Container */}
             {adminSettings.showQrBarcode !== false && (
               <div className="flex flex-col sm:flex-row items-center gap-4 bg-black/50 border border-yellow-400/20 rounded-2xl p-3.5">
                 {/* QR Code Frame */}
@@ -3702,12 +3786,13 @@ function WalletView({ user: parentUser, refreshUser }) {
                   <div className="relative w-32 h-32 bg-white flex items-center justify-center overflow-hidden rounded border border-gray-200">
                     <img
                       src={
-                        adminSettings.qrCode ||
-                        `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                          `upi://pay?pa=${adminSettings.upiId || "coinflip.pay@upi"}&pn=${encodeURIComponent(
-                            adminSettings.merchantName || "CoinFlip Official"
-                          )}&am=${amount || "100"}&cu=INR&tn=Deposit`
-                        )}`
+                        adminSettings.qrCode && adminSettings.qrCodeType === "custom_upload"
+                          ? adminSettings.qrCode
+                          : `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                              `upi://pay?pa=${adminSettings.upiId || "coinflip.pay@upi"}&pn=${encodeURIComponent(
+                                adminSettings.merchantName || "CoinFlip Official"
+                              )}&am=${amount || "100"}&cu=INR&tn=Deposit`
+                            )}`
                       }
                       alt="UPI Payment QR Code"
                       className="w-full h-full object-contain"
@@ -3719,52 +3804,80 @@ function WalletView({ user: parentUser, refreshUser }) {
                   </div>
                 </div>
 
-                {/* Right Info: Amount, UPI ID, Barcode, Pay Button */}
+                {/* Right Info: Amount, UPI ID, Direct App Buttons */}
                 <div className="space-y-2.5 text-center sm:text-left flex-1 w-full">
-                  <div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Merchant UPI ID</span>
-                    <p className="font-mono text-sm font-black text-yellow-300 select-all">
+                  {/* Selectable / Clickable UPI ID Box */}
+                  <div
+                    onClick={() => openUpiApp("all")}
+                    className="p-2.5 rounded-xl bg-[#111827] border border-yellow-400/20 hover:border-yellow-400/50 transition cursor-pointer group"
+                    title="Click to Copy UPI ID & Launch Payment"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase block">Official Receiving UPI ID</span>
+                      <span className="text-[9px] font-bold text-yellow-400 group-hover:underline">
+                        {copiedUpi ? "Copied! ✓" : "Tap to Pay ⚡"}
+                      </span>
+                    </div>
+                    <p className="font-mono text-sm font-black text-yellow-300 mt-0.5 select-all">
                       {adminSettings.upiId || "coinflip.pay@upi"}
                     </p>
-                    <p className="text-[10px] text-gray-400">
-                      Merchant: {adminSettings.merchantName || "CoinFlip Official"}
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      Payee: <strong className="text-white font-semibold">{adminSettings.merchantName || "CoinFlip Official"}</strong>
                     </p>
                   </div>
 
-                  {/* Simulated Merchant Barcode */}
-                  <div className="p-2 rounded-xl bg-[#111827] border border-white/5 text-center">
-                    <div className="flex justify-center items-end gap-1 h-6 px-2 overflow-hidden">
-                      {[3, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 4, 2, 3, 1, 2, 4, 1, 3, 2, 1, 4].map((w, i) => (
-                        <span
-                          key={i}
-                          className="bg-white/70 h-full rounded-xs"
-                          style={{
-                            width: `${w * 1.4}px`,
-                            height: `${65 + (i % 4) * 8}%`,
-                          }}
-                        />
-                      ))}
+                  {/* 1-Tap Direct UPI App Open Buttons */}
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1.5">
+                      Direct App Launch (Opens Instantly):
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {/* PhonePe */}
+                      <button
+                        type="button"
+                        onClick={() => openUpiApp("phonepe")}
+                        className="p-2 rounded-xl bg-purple-600/25 hover:bg-purple-600/40 border border-purple-500/40 text-purple-200 font-black text-xs transition active:scale-95 flex flex-col items-center justify-center gap-0.5 shadow-sm cursor-pointer"
+                      >
+                        <span className="text-sm">🟣</span>
+                        <span className="text-[11px] font-bold">PhonePe</span>
+                      </button>
+
+                      {/* Google Pay */}
+                      <button
+                        type="button"
+                        onClick={() => openUpiApp("gpay")}
+                        className="p-2 rounded-xl bg-blue-600/25 hover:bg-blue-600/40 border border-blue-500/40 text-blue-200 font-black text-xs transition active:scale-95 flex flex-col items-center justify-center gap-0.5 shadow-sm cursor-pointer"
+                      >
+                        <span className="text-sm">🔵</span>
+                        <span className="text-[11px] font-bold">Google Pay</span>
+                      </button>
+
+                      {/* Paytm */}
+                      <button
+                        type="button"
+                        onClick={() => openUpiApp("paytm")}
+                        className="p-2 rounded-xl bg-cyan-600/25 hover:bg-cyan-600/40 border border-cyan-500/40 text-cyan-200 font-black text-xs transition active:scale-95 flex flex-col items-center justify-center gap-0.5 shadow-sm cursor-pointer"
+                      >
+                        <span className="text-sm">🟦</span>
+                        <span className="text-[11px] font-bold">Paytm</span>
+                      </button>
                     </div>
-                    <p className="font-mono text-[9px] text-gray-400 mt-1 tracking-widest uppercase truncate">
-                      {adminSettings.barcodeNumber || adminSettings.upiId || "COINFLIP-PAY-TERMINAL"}
-                    </p>
                   </div>
 
-                  {/* Direct UPI App Intent Link & Copy Button */}
+                  {/* Any UPI / Copy Action */}
                   <div className="flex flex-wrap gap-2 pt-0.5">
-                    <a
-                      href={`upi://pay?pa=${encodeURIComponent(adminSettings.upiId || "coinflip.pay@upi")}&pn=${encodeURIComponent(
-                        adminSettings.merchantName || "CoinFlip Official"
-                      )}&am=${amount || "100"}&cu=INR&tn=CoinFlip%20Deposit`}
-                      className="flex-1 min-w-[140px] text-center px-3 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-300 hover:to-amber-300 text-black font-black text-xs transition shadow-md flex items-center justify-center gap-1.5"
+                    <button
+                      type="button"
+                      onClick={() => openUpiApp("all")}
+                      className="flex-1 min-w-[130px] text-center px-3 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-300 hover:to-amber-300 text-black font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                     >
                       <span>⚡</span>
-                      <span>Pay {RUPEE}{amount || "100"} via UPI App</span>
-                    </a>
+                      <span>Pay {RUPEE}{amount || "100"} via UPI</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(adminSettings.upiId || "coinflip.pay@upi")}
-                      className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition shrink-0"
+                      className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition shrink-0 cursor-pointer"
                     >
                       {copiedUpi ? "Copied! ✓" : "Copy UPI"}
                     </button>
@@ -4137,7 +4250,7 @@ function WalletView({ user: parentUser, refreshUser }) {
             </div>
 
             <div className="space-y-1">
-              <p className="font-mono text-sm font-black text-yellow-300">
+              <p className="font-mono text-sm font-black text-yellow-300 select-all">
                 {adminSettings.upiId || "coinflip.pay@upi"}
               </p>
               <p className="text-xs text-gray-400">
@@ -4145,7 +4258,41 @@ function WalletView({ user: parentUser, refreshUser }) {
               </p>
             </div>
 
-            <div className="flex gap-2">
+            {/* Direct App Buttons inside modal */}
+            <div className="grid grid-cols-3 gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  openUpiApp("phonepe");
+                  setEnlargeQrModal(false);
+                }}
+                className="py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 font-black text-[11px] transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span>🟣</span> PhonePe
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  openUpiApp("gpay");
+                  setEnlargeQrModal(false);
+                }}
+                className="py-2 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-200 font-black text-[11px] transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span>🔵</span> GPay
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  openUpiApp("paytm");
+                  setEnlargeQrModal(false);
+                }}
+                className="py-2 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-cyan-200 font-black text-[11px] transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span>🟦</span> Paytm
+              </button>
+            </div>
+
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => {

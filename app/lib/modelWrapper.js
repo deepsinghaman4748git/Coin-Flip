@@ -236,10 +236,13 @@ export function getModel(modelName, MongooseModel) {
         try {
           const docs = await fsFind(collectionKey, query);
           if (docs && docs.length > 0) {
-            // Seed to inMemoryDb
+            // Sync to inMemoryDb
             if (inMemoryDb[collectionKey]) {
               for (const d of docs) {
-                if (!inMemoryDb[collectionKey].some((x) => x._id?.toString() === d._id?.toString())) {
+                const idx = inMemoryDb[collectionKey].findIndex((x) => x._id?.toString() === d._id?.toString());
+                if (idx >= 0) {
+                  inMemoryDb[collectionKey][idx] = d;
+                } else {
                   inMemoryDb[collectionKey].push(d);
                 }
               }
@@ -256,23 +259,26 @@ export function getModel(modelName, MongooseModel) {
 
     findOne(query = {}) {
       return createQueryChain(async () => {
-        // Fast-path: Check in-memory DB first
-        const coll = inMemoryDb[collectionKey] || [];
-        const memDoc = coll.find((doc) => matchesQuery(doc, query));
-        if (memDoc) return memDoc;
-
         try {
           const doc = await fsFindOne(collectionKey, query);
           if (doc) {
-            if (inMemoryDb[collectionKey] && !inMemoryDb[collectionKey].some((x) => x._id?.toString() === doc._id?.toString())) {
-              inMemoryDb[collectionKey].unshift(doc);
+            if (inMemoryDb[collectionKey]) {
+              const idx = inMemoryDb[collectionKey].findIndex((x) => x._id?.toString() === doc._id?.toString());
+              if (idx >= 0) {
+                inMemoryDb[collectionKey][idx] = doc;
+              } else {
+                inMemoryDb[collectionKey].unshift(doc);
+              }
             }
             return doc;
           }
         } catch (err) {
           console.warn("fsFindOne error:", err);
         }
-        return null;
+        // Fallback to in-memory store if Firestore returned nothing or is offline
+        const coll = inMemoryDb[collectionKey] || [];
+        const memDoc = coll.find((doc) => matchesQuery(doc, query));
+        return memDoc || null;
       }, collectionKey);
     },
 
@@ -281,37 +287,37 @@ export function getModel(modelName, MongooseModel) {
       if (!idStr) return createQueryChain(async () => null, collectionKey);
 
       return createQueryChain(async () => {
-        // Fast-path: check in-memory store
-        const coll = inMemoryDb[collectionKey] || [];
-        const memDoc = coll.find((doc) => doc._id?.toString() === idStr || doc.id?.toString() === idStr);
-        if (memDoc) return memDoc;
-
         try {
           const doc = await fsFindById(collectionKey, idStr);
           if (doc) {
-            if (inMemoryDb[collectionKey] && !inMemoryDb[collectionKey].some((x) => x._id?.toString() === doc._id?.toString())) {
-              inMemoryDb[collectionKey].unshift(doc);
+            if (inMemoryDb[collectionKey]) {
+              const idx = inMemoryDb[collectionKey].findIndex((x) => x._id?.toString() === doc._id?.toString());
+              if (idx >= 0) {
+                inMemoryDb[collectionKey][idx] = doc;
+              } else {
+                inMemoryDb[collectionKey].unshift(doc);
+              }
             }
             return doc;
           }
         } catch (err) {
           console.warn("fsFindById error:", err);
         }
-        return null;
+        // Fallback to in-memory store
+        const coll = inMemoryDb[collectionKey] || [];
+        const memDoc = coll.find((doc) => doc._id?.toString() === idStr || doc.id?.toString() === idStr);
+        return memDoc || null;
       }, collectionKey);
     },
 
     async countDocuments(query = {}) {
-      const coll = inMemoryDb[collectionKey] || [];
-      const memCount = coll.filter((doc) => matchesQuery(doc, query)).length;
-      if (memCount > 0) return memCount;
-
       try {
         const docs = await fsFind(collectionKey, query);
-        if (docs) return docs.length;
+        if (docs !== null && docs !== undefined) return docs.length;
       } catch (err) {
         console.warn("countDocuments fs error:", err);
       }
+      const coll = inMemoryDb[collectionKey] || [];
       return coll.filter((doc) => matchesQuery(doc, query)).length;
     },
 

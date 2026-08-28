@@ -43,6 +43,11 @@ const GameSchema = new mongoose.Schema(
       min: 0,
     },
 
+    payoutMultiplier: {
+      type: Number,
+      default: 1.8,
+    },
+
     status: {
       type: String,
       enum: ["won", "lost"],

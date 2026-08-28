@@ -81,12 +81,14 @@ export async function POST(request) {
     let totalAdded = depositAmount;
     let welcomeBonusAmount = 0;
 
-    // Manual Admin Decision for First Deposit / Welcome Bonus
+    const isFirstDeposit = !user.firstDepositDone && !user.hasClaimedWelcomeBonus;
+
+    // Welcome Bonus: Strictly only for new users on their first deposit
     if (grantBonus) {
       if (customBonusAmount !== undefined && customBonusAmount !== null && Number(customBonusAmount) >= 0) {
         welcomeBonusAmount = Number(customBonusAmount);
-      } else {
-        // Default to configured percentage (e.g. 100% of deposit)
+      } else if (isFirstDeposit) {
+        // Default to configured percentage (e.g. 100% of deposit) for eligible new users only
         const bonusPercent = Number(settings.welcomeBonusPercentage || settings.welcomeBonusPercent || 100);
         const maxBonus = Number(settings.welcomeBonusMax || settings.maxWelcomeBonus || 5000);
         welcomeBonusAmount = Math.min(maxBonus, (depositAmount * bonusPercent) / 100);
@@ -103,13 +105,14 @@ export async function POST(request) {
           amount: welcomeBonusAmount,
           status: "approved",
           paymentMethod: "admin_manual",
-          note: bonusNote || `Deposit Welcome Bonus approved by Admin on ₹${depositAmount} deposit`,
+          note: bonusNote || `100% Welcome Bonus on First Deposit of ₹${depositAmount}`,
         });
       }
     }
 
-    const isFirstDeposit = !user.firstDepositDone;
+    // Always mark first deposit done and welcome bonus claimed/exhausted so it never repeats on logins or next deposits
     user.firstDepositDone = true;
+    user.hasClaimedWelcomeBonus = true;
 
     // Process Referrer Reward if first deposit
     if (isFirstDeposit && user.referredBy && settings.referralBonusEnabled !== false) {

@@ -9,7 +9,7 @@ const defaultSettings = {
   maintenanceMessage: "CoinFlip is temporarily undergoing routine maintenance. Please check back shortly.",
   minBet: 10,
   maxBet: 10000,
-  payoutMultiplier: 2,
+  payoutMultiplier: 1.8,
 
   // Tie / Edge Match Controls
   tieEnabled: true,
@@ -34,10 +34,9 @@ const defaultSettings = {
   backupUpiId: "",
   merchantName: "CoinFlip Official",
   qrCode: "",
-  qrCodeType: "both",
-  barcodeNumber: "",
+  qrCodeType: "auto_upi",
   showQrBarcode: true,
-  depositInstructions: "1. Scan the official QR code / Barcode or copy UPI ID.\n2. Complete payment in GPay / PhonePe / Paytm / BHIM.\n3. Copy the 12-digit UTR transaction reference and submit below.",
+  depositInstructions: "1. Scan the official QR code, copy UPI ID, or tap PhonePe / Google Pay / Paytm.\n2. Complete payment in your UPI app.\n3. Copy the 12-digit UTR transaction reference and submit below.",
 
   // Withdrawal Settings
   minWithdrawal: 100,
@@ -867,10 +866,10 @@ export default function AdminSettingsPage() {
               <div>
                 <h2 className="text-lg font-black text-white flex items-center gap-2">
                   <span className="p-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 text-sm">💳</span>
-                  <span>UPI Payment Gateway, QR Code &amp; Barcode Management</span>
+                  <span>UPI Payment Gateway &amp; QR Code Management</span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Set receiving UPI ID, upload custom UPI Barcode/QR Code, configure auto-generated dynamic QR and merchant parameters.
+                  Set receiving UPI ID, merchant display name, upload custom UPI QR code, or enable automatic dynamic QR generation.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -903,7 +902,7 @@ export default function AdminSettingsPage() {
                   value={settings.upiId}
                   onChange={(val) => updateField("upiId", val)}
                   placeholder="e.g. merchant@paytm / business@okaxis"
-                  description="Players will send deposits to this UPI address"
+                  description="Players will send deposits to this UPI address (Supports PhonePe, GPay, Paytm direct launch)"
                 />
 
                 <DarkField
@@ -911,7 +910,7 @@ export default function AdminSettingsPage() {
                   value={settings.merchantName}
                   onChange={(val) => updateField("merchantName", val)}
                   placeholder="e.g. CoinFlip Official"
-                  description="Displayed on payment app screen"
+                  description="Displayed on UPI payment screen and QR code"
                 />
               </div>
 
@@ -921,60 +920,46 @@ export default function AdminSettingsPage() {
                   value={settings.backupUpiId}
                   onChange={(val) => updateField("backupUpiId", val)}
                   placeholder="e.g. backup@ybl"
-                  description="Secondary fallback UPI if primary has limits"
-                />
-
-                <DarkField
-                  label="Merchant Terminal / Barcode Reference ID (Optional)"
-                  value={settings.barcodeNumber}
-                  onChange={(val) => updateField("barcodeNumber", val)}
-                  placeholder="e.g. BARCODE-9823489102"
-                  description="Displayed under barcode on player deposit screen"
+                  description="Secondary fallback UPI address if primary exceeds banking limits"
                 />
               </div>
             </div>
 
-            {/* QR CODE & BARCODE DISPLAY MODE CONFIG */}
+            {/* QR CODE DISPLAY CONFIG */}
             <div className="p-5 rounded-2xl bg-gradient-to-br from-yellow-500/10 via-slate-900 to-slate-900 border border-yellow-500/20 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h3 className="font-bold text-yellow-400 text-sm flex items-center gap-2">
-                    <span>📷</span> UPI Barcode &amp; QR Code Options
+                    <span>📷</span> UPI QR Code Options
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Choose whether to display an Auto-Generated Dynamic UPI QR, a Custom Uploaded Barcode/QR Image, or both.
+                    Choose whether to display an Auto-Generated Dynamic UPI QR or a Custom Uploaded QR Image.
                   </p>
                 </div>
                 <DarkToggle
-                  label="Show QR & Barcode Box"
+                  label="Show QR Code Box"
                   checked={settings.showQrBarcode !== false}
                   onChange={(val) => updateField("showQrBarcode", val)}
                 />
               </div>
 
               {/* Mode Selector Tabs */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   {
                     id: "auto_upi",
                     title: "⚡ Dynamic Auto QR",
-                    desc: "Auto-generates QR code from UPI ID & Merchant Name in real-time.",
-                    badge: "Dynamic",
+                    desc: "Auto-generates real-time QR code with recipient UPI ID, merchant name & entered amount.",
+                    badge: "Dynamic UPI",
                   },
                   {
                     id: "custom_upload",
-                    title: "🖼️ Custom Barcode / QR",
-                    desc: "Display your official PhonePe, GPay, Paytm, or BharatPe QR/Barcode image.",
+                    title: "🖼️ Custom Uploaded QR",
+                    desc: "Display your official PhonePe, Google Pay, Paytm, or BharatPe static QR code image.",
                     badge: "Custom Image",
                   },
-                  {
-                    id: "both",
-                    title: "🌟 Dual QR + Barcode Mode",
-                    desc: "Auto-generate dynamic UPI QR with custom merchant barcode styling.",
-                    badge: "Recommended",
-                  },
                 ].map((mode) => {
-                  const isSelected = (settings.qrCodeType || "both") === mode.id;
+                  const isSelected = (settings.qrCodeType || "auto_upi") === mode.id || (settings.qrCodeType === "both" && mode.id === "auto_upi");
                   return (
                     <button
                       key={mode.id}
@@ -1002,17 +987,17 @@ export default function AdminSettingsPage() {
                 })}
               </div>
 
-              {/* CUSTOM QR / BARCODE IMAGE UPLOADER */}
+              {/* CUSTOM QR IMAGE UPLOADER */}
               <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800 space-y-3">
                 <label className="block text-xs font-bold text-slate-200">
-                  Upload Custom UPI Barcode / QR Code Image (PhonePe, GPay, Paytm, BharatPe)
+                  Upload Custom QR Code Image (PhonePe / Google Pay / Paytm / BharatPe)
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                   <div>
                     <label className="border-2 border-dashed border-slate-700 hover:border-yellow-500/60 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer bg-slate-900/50 hover:bg-slate-900 transition text-center">
                       <span className="text-2xl">📸</span>
                       <div>
-                        <p className="text-xs font-bold text-white">Click or Drag to Upload Barcode / QR</p>
+                        <p className="text-xs font-bold text-white">Click or Drag to Upload QR Image</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">Supports PNG, JPG, JPEG, WebP (Max 5MB)</p>
                       </div>
                       <input
@@ -1028,7 +1013,8 @@ export default function AdminSettingsPage() {
                             const reader = new FileReader();
                             reader.onload = (evt) => {
                               updateField("qrCode", evt.target.result);
-                              showToast("📸 Custom Barcode/QR image loaded! Click Save to apply.");
+                              updateField("qrCodeType", "custom_upload");
+                              showToast("📸 Custom QR code image attached! Click Save to apply.");
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1042,21 +1028,24 @@ export default function AdminSettingsPage() {
                     <DarkField
                       label="Or Direct Image URL"
                       value={settings.qrCode && !settings.qrCode.startsWith("data:") ? settings.qrCode : ""}
-                      onChange={(val) => updateField("qrCode", val)}
+                      onChange={(val) => {
+                        updateField("qrCode", val);
+                        if (val) updateField("qrCodeType", "custom_upload");
+                      }}
                       placeholder="https://your-domain.com/my-qr.png"
                       description="Paste public image link directly"
                     />
                     {settings.qrCode && (
                       <div className="flex items-center justify-between pt-1">
                         <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                          <span>✓</span> Image Attached
+                          <span>✓</span> Custom QR Attached
                         </span>
                         <button
                           type="button"
                           onClick={() => updateField("qrCode", "")}
                           className="px-2.5 py-1 text-xs rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 font-bold transition cursor-pointer"
                         >
-                          Remove Image
+                          Remove Custom QR
                         </button>
                       </div>
                     )}
@@ -1068,7 +1057,7 @@ export default function AdminSettingsPage() {
               <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-yellow-400 flex items-center gap-1.5">
-                    <span>👁️</span> Live Player Screen Preview (QR Code &amp; Barcode)
+                    <span>👁️</span> Live Player Screen Preview (QR Code &amp; UPI ID)
                   </span>
                   <span className="text-[10px] text-slate-500 font-mono">Real-time Simulation</span>
                 </div>
@@ -1081,10 +1070,10 @@ export default function AdminSettingsPage() {
                     </div>
 
                     <div className="relative w-40 h-40 bg-white flex items-center justify-center overflow-hidden rounded-lg border border-slate-200">
-                      {settings.qrCode ? (
+                      {settings.qrCode && settings.qrCodeType === "custom_upload" ? (
                         <img
                           src={settings.qrCode}
-                          alt="UPI Barcode / QR Code"
+                          alt="Custom UPI QR Code"
                           className="w-full h-full object-contain"
                         />
                       ) : (
@@ -1110,7 +1099,7 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  {/* Merchant Barcode & Info Side */}
+                  {/* UPI Info & Direct Launch Buttons */}
                   <div className="space-y-3 text-center sm:text-left flex-1 max-w-sm">
                     <div>
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Receiving UPI ID</span>
@@ -1119,23 +1108,23 @@ export default function AdminSettingsPage() {
                       </p>
                     </div>
 
-                    {/* Simulated Barcode Lines */}
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-center">
-                      <div className="flex justify-center items-end gap-1 h-8 px-2 overflow-hidden">
-                        {[3, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 4, 2, 3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 3].map((w, i) => (
-                          <span
-                            key={i}
-                            className="bg-white/80 h-full rounded-xs"
-                            style={{
-                              width: `${w * 1.5}px`,
-                              height: `${70 + (i % 5) * 6}%`,
-                            }}
-                          />
-                        ))}
+                    {/* Direct App Launch Preview Buttons */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Direct App Launch Preview</span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div className="p-2 rounded-lg bg-purple-600/20 border border-purple-500/30 text-center">
+                          <span className="text-xs font-black text-purple-300 block">PhonePe</span>
+                          <span className="text-[9px] text-purple-400 font-semibold">Direct App</span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-blue-600/20 border border-blue-500/30 text-center">
+                          <span className="text-xs font-black text-blue-300 block">Google Pay</span>
+                          <span className="text-[9px] text-blue-400 font-semibold">Direct App</span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-cyan-600/20 border border-cyan-500/30 text-center">
+                          <span className="text-xs font-black text-cyan-300 block">Paytm</span>
+                          <span className="text-[9px] text-cyan-400 font-semibold">Direct App</span>
+                        </div>
                       </div>
-                      <p className="font-mono text-[9px] text-slate-400 mt-1 tracking-widest uppercase">
-                        {settings.barcodeNumber || settings.upiId || "COINFLIP-PAY-TERMINAL"}
-                      </p>
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-1">

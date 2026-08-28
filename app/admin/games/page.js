@@ -311,7 +311,7 @@ export default function AdminGamesPage() {
                       {/* Multiplier & Payout */}
                       <td className="py-4 px-4">
                         <div className="font-bold text-slate-300 text-xs">
-                          {game.payoutMultiplier || 2}x Payout
+                          {game.payoutMultiplier || 1.8}x Payout
                         </div>
                         <div className={`font-black text-sm mt-0.5 ${isWon ? "text-emerald-400" : "text-slate-500 line-through"}`}>
                           {isWon ? `+${money(game.winAmount)}` : `-${money(game.entryFee)}`}
