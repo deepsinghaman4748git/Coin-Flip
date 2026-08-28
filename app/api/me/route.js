@@ -21,13 +21,19 @@ export async function GET(request) {
       await user.save();
     }
 
+    // Ensure wallet balance is never negative
+    if (typeof user.walletBalance === "number" && user.walletBalance < 0) {
+      user.walletBalance = 0;
+      await user.save();
+    }
+
     return NextResponse.json({
       success: true,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        walletBalance: user.walletBalance,
+        walletBalance: Math.max(0, Number(user.walletBalance || 0)),
         role: user.role,
         referralCode: user.referralCode,
         referredBy: user.referredBy || "",

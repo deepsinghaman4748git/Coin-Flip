@@ -350,6 +350,9 @@ export function getModel(modelName, MongooseModel) {
         } else {
           Object.assign(doc, update);
         }
+        if (typeof doc.walletBalance === "number") {
+          doc.walletBalance = Math.max(0, doc.walletBalance);
+        }
         doc.updatedAt = new Date();
         try {
           await fsUpdateOne(collectionKey, { _id: doc._id }, update);
@@ -370,9 +373,14 @@ export function getModel(modelName, MongooseModel) {
 
       const coll = inMemoryDb[collectionKey] || [];
       let memDoc = coll.find((d) => matchesQuery(d, query));
-      if (!memDoc && doc) {
-        coll.unshift(doc);
-        memDoc = doc;
+
+      if (doc) {
+        if (memDoc) {
+          Object.assign(memDoc, doc);
+        } else {
+          coll.unshift(doc);
+        }
+        return cloneDoc(doc, collectionKey);
       }
 
       if (memDoc) {
@@ -380,10 +388,20 @@ export function getModel(modelName, MongooseModel) {
           Object.assign(memDoc, update.$set);
         } else if (update.$inc) {
           for (const [k, v] of Object.entries(update.$inc)) {
-            memDoc[k] = (memDoc[k] || 0) + v;
+            let newVal = (Number(memDoc[k]) || 0) + Number(v);
+            if (k === "walletBalance" || k === "balance") {
+              if (newVal < 0 && query && query[k] && query[k].$gte !== undefined) {
+                return null;
+              }
+              newVal = Math.max(0, newVal);
+            }
+            memDoc[k] = newVal;
           }
         } else {
           Object.assign(memDoc, update);
+        }
+        if (typeof memDoc.walletBalance === "number") {
+          memDoc.walletBalance = Math.max(0, memDoc.walletBalance);
         }
         memDoc.updatedAt = new Date();
         return cloneDoc(memDoc, collectionKey);
@@ -393,7 +411,7 @@ export function getModel(modelName, MongooseModel) {
         return await firestoreMethods.create({ ...query, ...(update.$set || update) });
       }
 
-      return doc ? cloneDoc(doc, collectionKey) : null;
+      return null;
     },
 
     async findByIdAndUpdate(id, update, options = {}) {

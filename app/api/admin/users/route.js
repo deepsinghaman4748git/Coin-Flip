@@ -97,7 +97,7 @@ export async function POST(request) {
       }
 
       if (type === "credit") {
-        targetUser.walletBalance = Number(targetUser.walletBalance || 0) + amount;
+        targetUser.walletBalance = Math.max(0, Number(targetUser.walletBalance || 0)) + amount;
       } else if (type === "debit") {
         if (Number(targetUser.walletBalance || 0) < amount) {
           return NextResponse.json(
@@ -105,7 +105,7 @@ export async function POST(request) {
             { status: 400 }
           );
         }
-        targetUser.walletBalance = Number(targetUser.walletBalance || 0) - amount;
+        targetUser.walletBalance = Math.max(0, Number(targetUser.walletBalance || 0) - amount);
       } else {
         return NextResponse.json(
           { success: false, message: "Adjustment type must be 'credit' or 'debit'" },
